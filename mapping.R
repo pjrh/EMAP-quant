@@ -1,5 +1,6 @@
 
 library(tidyverse)
+library(fastDummies)
 library(sf)
 library(tmap)
 
@@ -90,11 +91,42 @@ dist_all <- IMD_analysis %>%
 IMD_analysis <- IMD_analysis %>%
   bind_cols(dist_all)
 
-a <- IMD_analysis %>%
-  mutate(within_2_miles_GP = if_else(as.numeric(GP) < 2*1609.34, 1, 0),
-         within_2_miles_jobcentre = if_else(as.numeric(jobcentre) < 2*1609.34, 1, 0),
-         within_2_miles_legalaid = if_else(as.numeric(`legal aid`) < 2*1609.34, 1, 0),
-         IMD_change = IMD_2019 - IMD_2015)
+threshold_miles <- 1
 
-res <- lm(IMD_change ~ within_2_miles_jobcentre + within_2_miles_GP + within_2_miles_legalaid, a)
+a <- IMD_analysis %>%
+  mutate(close_GP = if_else(as.numeric(GP) <= threshold_miles*1609.34, 1, 0),
+         close_jobcentre = if_else(as.numeric(jobcentre) <= threshold_miles*1609.34, 1, 0),
+         close_legalaid = if_else(as.numeric(`legal aid`) <= threshold_miles*1609.34, 1, 0),
+         IMD_change = IMD_2019 - IMD_2015,
+         group = case_when(close_GP == 1 &
+                             close_jobcentre == 1 &
+                             close_legalaid == 1 ~ "GP+JC+LA",
+                           close_GP == 1 &
+                             close_jobcentre == 1 &
+                             close_legalaid == 0 ~ "GP+JC",
+                           close_GP == 1 &
+                             close_jobcentre == 0 &
+                             close_legalaid == 1 ~ "GP+LA",
+                           close_GP == 0 &
+                             close_jobcentre == 1 &
+                             close_legalaid == 1 ~ "JC+LA",
+                           close_GP == 0 &
+                             close_jobcentre == 0 &
+                             close_legalaid == 1 ~ "LA",
+                           close_GP == 0 &
+                             close_jobcentre == 1 &
+                             close_legalaid == 0 ~ "JC",
+                           close_GP == 0 &
+                             close_jobcentre == 0 &
+                             close_legalaid == 0 ~ "GP",
+                           TRUE ~ "None")) %>%
+  dummy_cols("group")
+
+res <- lm(IMD_change ~ close_jobcentre + close_GP + close_legalaid, a)
 summary.lm(res)
+
+res2 <- lm(IMD_change ~ IMD_2015 + group_GP + `group_GP+JC` + `group_GP+JC+LA` + `group_GP+LA` + `group_JC` + `group_LA`, a)
+summary.lm(res2)
+
+
+a %>% group_by(group) %>% summarise(n(), mean(IMD_change, na.rm = TRUE))
