@@ -1,4 +1,11 @@
 
+download.file("https://api.os.uk/downloads/v1/products/OpenUPRN/downloads?area=GB&format=CSV&redirect",
+                       "uprns.zip")
+
+unzip("uprns.zip")
+
+download.file("https://raw.githubusercontent.com/openregister/registers-data-archive/master/jobcentre/records.csv",
+              "jobcentre_register.csv")
 
 download.file("https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/802704/dwp-jcp-office-address-register.csv",
               "jobcentre_locations.csv")

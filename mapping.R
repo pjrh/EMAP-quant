@@ -5,6 +5,8 @@ library(sf)
 library(tmap)
 
 
+UPRNs <- read_csv("osopenuprn_202109.csv") 
+
 IMD_2019 <- read_csv("IMD_2019.csv") 
 
 IMD_2019_2 <- IMD_2019 %>%
