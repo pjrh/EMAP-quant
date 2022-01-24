@@ -43,6 +43,9 @@ unzip("data_download/legalaid_work_locations.zip",
 # Index of multiple deprivation
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 
+download.file("https://opendatacommunities.org/downloads/cube-table?uri=http%3A%2F%2Fopendatacommunities.org%2Fdata%2Fsocietal-wellbeing%2Fdeprivation%2Fimd-income-score-2010",
+              "data_download/IMD_2010_income.csv")
+
 download.file("https://opendatacommunities.org/downloads/cube-table?uri=http%3A%2F%2Fopendatacommunities.org%2Fdata%2Fsocietal-wellbeing%2Fimd%2Findices",
               "data_download/IMD_2015.csv")
 
@@ -77,12 +80,12 @@ unzip("data_download/onspd.zip",
 # # Ordnance Survey location reference
 # # (for converting uprns to location)
 # #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
-# 
-# options(timeout = max(300, getOption("timeout"))) # as it is a big file, needs a longer timeout
-# download.file("https://api.os.uk/downloads/v1/products/OpenUPRN/downloads?area=GB&format=CSV&redirect",
-#               "data_download/uprns.zip")
-# 
-# unzip("data_download/uprns.zip",
-#       exdir = "data_download/uprns")
+
+options(timeout = max(600, getOption("timeout"))) # as it is a big file, needs a longer timeout
+download.file("https://api.os.uk/downloads/v1/products/OpenUPRN/downloads?area=GB&format=CSV&redirect",
+              "data_download/uprns.zip")
+
+unzip("data_download/uprns.zip",
+      exdir = "data_download/uprns")
 
 

@@ -38,6 +38,9 @@ data_dir <- "data_download"
 # Load the IMD scores and ranks #
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 
+IMD_2010_income <- read_csv(paste(data_dir, "IMD_2010_income.csv", sep = "/")) %>% 
+  mutate(Measurement = "Score",
+         `Indices of Deprivation` = "b. Income Deprivation Domain")
 IMD_2015 <- read_csv(paste(data_dir, "IMD_2015.csv", sep = "/")) 
 IMD_2019 <- read_csv(paste(data_dir, "IMD_2019.csv", sep = "/")) 
 
@@ -62,7 +65,10 @@ onspd <- read_csv(paste(data_dir, "onspd", "Data/ONSPD_FEB_2021_UK.csv", sep = "
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 
 # Legal aid
-legalaid_work <- read_csv(paste(data_dir, "legalaid_work_locations", "legal-aid-statistics-civil-starts-provider-location-data-to-mar-2021.csv", sep = "/"))
+legalaid_work <- read_csv(paste(data_dir,
+                                "legalaid_work_locations", 
+                                "legal-aid-statistics-civil-starts-provider-location-data-to-mar-2021.csv", 
+                                sep = "/"))
 
 # GPs
 gp_locations <- read_csv(paste(data_dir, "gp_locations", "epraccur.csv", sep = "/"),
@@ -85,7 +91,7 @@ jobcentre_locations <- read_csv(paste(data_dir, "jobcentre_locations.csv", sep =
 
 
 # Create a dataframe with one row per LSOA and all the measurements for each year
-process_IMD_file <- . %>%
+process_IMD_file <- .  %>%
   filter(Measurement == "Score") %>%
   transmute(FeatureCode, DateCode, Value, index = str_sub(`Indices of Deprivation`, 1, 1)) %>% 
   pivot_wider(names_from = c(DateCode, index),
@@ -95,12 +101,14 @@ process_IMD_file <- . %>%
 
 IMD_main <- IMD_2019 %>% process_IMD_file() %>%
   full_join(IMD_2015 %>% process_IMD_file(),
+            by = "FeatureCode") %>%
+  full_join(IMD_2010_income %>% process_IMD_file(),
             by = "FeatureCode")
 
 # Join this to the LSOA shape file
 LSOA_IMD_main <- LSOA_2011 %>%
   right_join(IMD_main , # just keep where we have IMD scores
-            by = c("lsoa11cd" = "FeatureCode")) %>%
+             by = c("lsoa11cd" = "FeatureCode")) %>%
   st_make_valid()
 
 
@@ -220,6 +228,11 @@ LSOA_IMD_analysis <- LSOA_IMD_analysis %>%
 
 ```
 
+```{r}
+tm_basemap("Stamen.TonerLite") +
+  tm_shape(LSOA_IMD_analysis %>% st_as_sf()) +
+  tm_fill(col = "b_2015")
+```
 
 ```{r}
 
