@@ -7,159 +7,201 @@ output:
 
 
 ```{r include=FALSE}
+#~~~~~~~~~~~~~~~~#
+#~~~~~~~~~~~~~~~~#
+# LOAD LIBRARIES #
+#~~~~~~~~~~~~~~~~#
+#~~~~~~~~~~~~~~~~#
 
 library(tidyverse)
+library(glue)
 library(fastDummies)
 library(sf)
 library(tmap)
 library(gtsummary)
 
+#~~~~~~~~~~~~~~~#
+#~~~~~~~~~~~~~~~#
+# GLOBAL PARAMS #
+#~~~~~~~~~~~~~~~#
+#~~~~~~~~~~~~~~~#
+
 data_dir <- "data_download"
-```
 
+#~~~~~~~~~~~~~~~#
+#~~~~~~~~~~~~~~~#
+# LOAD THE DATA #
+#~~~~~~~~~~~~~~~#
+#~~~~~~~~~~~~~~~#
 
-```{r}
-# Load the uprn file
-# Note that it changes name depending on when it was downloaded so the first two lines just look for it
-uprn_dir_files <- list.files(paste(data_dir, "uprns", sep = "/"))
-uprn_file <- uprn_dir_files %>% keep(~str_detect(.x, ".csv"))
-UPRNs <- read_csv(paste(data_dir, "uprns", uprn_file, sep = "/")) 
-
-IMD_2019 <- read_csv(paste(data_dir, "IMD_2019.csv", sep = "/")) 
-
-IMD_2019_2 <- IMD_2019 %>%
-  filter(Measurement == "Score") %>%
-  select(FeatureCode, Value, `Indices of Deprivation`) %>%
-  pivot_wider(names_from = `Indices of Deprivation`, values_from = Value) %>%
-  transmute(FeatureCode,
-            IMD_2019 = `b. Income Deprivation Domain`)
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+# Load the IMD scores and ranks #
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 
 IMD_2015 <- read_csv(paste(data_dir, "IMD_2015.csv", sep = "/")) 
+IMD_2019 <- read_csv(paste(data_dir, "IMD_2019.csv", sep = "/")) 
 
-IMD_2015_2 <- IMD_2015 %>%
-  filter(Measurement == "Score") %>%
-  select(FeatureCode, Value, `Indices of Deprivation`) %>%
-  pivot_wider(names_from = `Indices of Deprivation`, values_from = Value) %>%
-  transmute(FeatureCode,
-            IMD_2015 = `b. Income Deprivation Domain`)
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+# Load the geographic information #
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 
+# Load the LSOA shapes
 LSOA_2011 <- read_sf(paste(data_dir, "LSOA2011_boundaries", "Lower_Layer_Super_Output_Areas_December_2011_Generalised_Clipped__Boundaries_in_England_and_Wales.shp", sep = "/")) 
 
-IMD_analysis <- LSOA_2011 %>%
-  left_join(IMD_2019_2,
-            by = c("lsoa11cd" = "FeatureCode")) %>%
-  left_join(IMD_2015_2,
-            by = c("lsoa11cd" = "FeatureCode")) %>%
-  st_make_valid()
+# # Load the uprn file
+# # Note that it changes name depending on when it was downloaded so the first two lines just look for it
+# uprn_dir_files <- list.files(paste(data_dir, "uprns", sep = "/"))
+# uprn_file <- uprn_dir_files %>% keep(~str_detect(.x, ".csv"))
+# UPRNs <- read_csv(paste(data_dir, "uprns", uprn_file, sep = "/")) 
 
+# Load the ONSPD
 onspd <- read_csv(paste(data_dir, "onspd", "Data/ONSPD_FEB_2021_UK.csv", sep = "/"))
 
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+# Load the public services locations #
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 
+# Legal aid
+legalaid_work <- read_csv(paste(data_dir, "legalaid_work_locations", "legal-aid-statistics-civil-starts-provider-location-data-to-mar-2021.csv", sep = "/"))
+
+# GPs
 gp_locations <- read_csv(paste(data_dir, "gp_locations", "epraccur.csv", sep = "/"),
                          col_names = FALSE)
 
-gp_locations2 <- gp_locations %>%
+# Jobcentres
+jobcentre_locations <- read_csv(paste(data_dir, "jobcentre_locations.csv", sep = "/"))
+
+#~~~~~~~~~~~~~~~~~~~~~~#
+#~~~~~~~~~~~~~~~~~~~~~~#
+# CREATE MAIN DATAFILE #
+# This section puts    #
+# the above data       #
+# together to create   #
+# the dataframe from   #
+# which everything is  #
+# run.                 #
+#~~~~~~~~~~~~~~~~~~~~~~#
+#~~~~~~~~~~~~~~~~~~~~~~#
+
+
+# Create a dataframe with one row per LSOA and all the measurements for each year
+process_IMD_file <- . %>%
+  filter(Measurement == "Score") %>%
+  transmute(FeatureCode, DateCode, Value, index = str_sub(`Indices of Deprivation`, 1, 1)) %>% 
+  pivot_wider(names_from = c(DateCode, index),
+              values_from = Value,
+              names_glue = "{index}_{DateCode}") %>%
+  select(FeatureCode, sort(tidyselect::peek_vars()))
+
+IMD_main <- IMD_2019 %>% process_IMD_file() %>%
+  full_join(IMD_2015 %>% process_IMD_file(),
+            by = "FeatureCode")
+
+# Join this to the LSOA shape file
+LSOA_IMD_main <- LSOA_2011 %>%
+  right_join(IMD_main , # just keep where we have IMD scores
+            by = c("lsoa11cd" = "FeatureCode")) %>%
+  st_make_valid()
+
+
+# Create the locations of public services dataframe
+
+# Process the specific formats of the input into a temp file
+gp_locations_temp <- gp_locations %>%
   left_join(onspd,
             by = c("X10" = "pcds")) %>%
   mutate(service = "GP") %>%
-  filter(rgn != "S99999999") # remove Scotland
+  filter(rgn != "S99999999") # remove Scotland :(
 
-jobcentre_locations <- read_csv(paste(data_dir, "jobcentre_locations.csv", sep = "/"))
-
-jobcentre_locations2 <- jobcentre_locations %>%
+# Process the specific formats of the input into a temp file
+jobcentre_locations_temp <- jobcentre_locations %>%
   left_join(onspd,
             by = c("Postcode" = "pcds")) %>%
   mutate(service = "jobcentre") %>%
-  filter(rgn != "S99999999") # remove Scotland
+  filter(rgn != "S99999999") # remove Scotland :(
 
-legalaid_work <- read_csv(paste(data_dir, "legalaid_work_locations", "legal-aid-statistics-civil-starts-provider-location-data-to-mar-2021.csv", sep = "/"))
-
-legalaid_locations2 <- legalaid_work %>%
+# Process the specific formats of the input into a temp file
+legalaid_locations_temp <- legalaid_work %>%
   filter(fin_yr == "2019-20",
          scheme == "Legal Help") %>%
   count(Postcode, lat, long) %>%
   mutate(service = "legal aid")
-```
 
-
-```{r}
-
-services <- bind_rows(#gp_locations2 %>% select(service, lat, long),
-                      jobcentre_locations2 %>% select(service, lat, long),
-                      legalaid_locations2 %>% select(service, lat, long)) %>%
+# Put these together into a single data frame
+services_main <- bind_rows(#gp_locations2 %>% select(service, lat, long),
+  jobcentre_locations_temp %>% select(service, lat, long),
+  legalaid_locations_temp %>% select(service, lat, long)) %>%
   filter(lat <= 90,
          !is.na(lat)) %>%
   st_as_sf(coords = c("long", "lat"), crs = "WGS84")
 
-services_multipoint <- services %>%
-  group_by(service) %>%
-  summarise(a = st_combine(geometry))
+# services_multipoint <- services_main %>%
+#   group_by(service) %>%
+#   summarise(a = st_combine(geometry))
 
-services_multipoint <- services %>%
-  split(services$service) %>%
+services_multipoint <- services_main %>%
+  split(services_main$service) %>%
   imap(~.x %>% st_combine() %>% st_sf %>% mutate(service = .y)) %>% 
   bind_rows()
+
+
 ```
+
+# Plot the services
 
 ```{r message=FALSE}
 tmap_mode("view")
 tm_basemap("Stamen.TonerLite") +
-  tm_shape(services) + tm_dots(col = "service",
-                               alpha = 0.8)
+  tm_shape(services_main) + 
+  tm_dots(col = "service",
+          alpha = 0.8)
 ```
-  
-```{r}
-dist_all <- IMD_analysis %>%
-  st_distance(services_multipoint) %>%
-  as_tibble() %>%
-  setNames(services_multipoint$service)
 
-IMD_analysis <- IMD_analysis %>%
-  bind_cols(dist_all)
+
+
+```{r}
 
 threshold_miles <- 2
 meters_in_mile <- 1609.34
+index_choice <- "b"
 
-IMD_analysis_w_closeness <- IMD_analysis %>%
-  mutate(#close_GP = if_else(as.numeric(GP) <= threshold_miles*1609.34, 1, 0),
-    close_jobcentre = if_else(as.numeric(jobcentre) <= threshold_miles*meters_in_mile, 1, 0),
-    close_legalaid = if_else(as.numeric(`legal aid`) <= threshold_miles*meters_in_mile, 1, 0),
-    IMD_change = IMD_2019 - IMD_2015,
-    # group = case_when(close_GP == 1 &
-    #                     close_jobcentre == 1 &
-    #                     close_legalaid == 1 ~ "GP+JC+LA",
-    #                   close_GP == 1 &
-    #                     close_jobcentre == 1 &
-    #                     close_legalaid == 0 ~ "GP+JC",
-    #                   close_GP == 1 &
-    #                     close_jobcentre == 0 &
-    #                     close_legalaid == 1 ~ "GP+LA",
-    #                   close_GP == 0 &
-    #                     close_jobcentre == 1 &
-    #                     close_legalaid == 1 ~ "JC+LA",
-    #                   close_GP == 0 &
-    #                     close_jobcentre == 0 &
-    #                     close_legalaid == 1 ~ "LA",
-    #                   close_GP == 0 &
-    #                     close_jobcentre == 1 &
-    #                     close_legalaid == 0 ~ "JC",
-    #                   close_GP == 0 &
-    #                     close_jobcentre == 0 &
-    #                     close_legalaid == 0 ~ "GP",
-    #                   TRUE ~ "None"),
-    group2 = case_when(close_jobcentre == 1 &
-                         close_legalaid == 1 ~ "JC+LA",
-                       close_jobcentre == 1 &
-                         close_legalaid == 0 ~ "JC only",
-                       close_jobcentre == 0 &
-                         close_legalaid == 1 ~ "LA only",
-                       TRUE ~ "None"),
-    combo_bonus = case_when(close_jobcentre == 1 &
-                              close_legalaid == 1 ~ 1L,
-                            TRUE ~ 0L)
-  ) %>%
-  #dummy_cols("group") %>%
-  dummy_cols("group2")
+# INDEX CHOICE SHOULD BE FIRST LETTER FROM THE FOLLOWING LIST:
+# a. Index of Multiple Deprivation (IMD)                    
+# b. Income Deprivation Domain                              
+# c. Employment Deprivation Domain                          
+# d. Education, Skills and Training Domain                  
+# e. Health Deprivation and Disability Domain               
+# f. Crime Domain                                           
+# g. Barriers to Housing and Services Domain                
+# h. Living Environment Deprivation Domain                  
+# i. Income Deprivation Affecting Children Index (IDACI)    
+# j. Income Deprivation Affecting Older People Index (IDAOPI)
+
+dvar_temp2019 <- glue("{index_choice}_2019")
+dvar_temp2015 <- glue("{index_choice}_2015")
+calc_dependent_var <- . %>% mutate(dependent_var = !!as.symbol(dvar_temp2019) - !!as.symbol(dvar_temp2015))
+
+
+# This is the distance to the nearest service for each LSOA
+# Will be zero where the service is in the LSOA
+dist_all_temp <- LSOA_IMD_main %>%
+  st_distance(services_multipoint) %>%
+  as_tibble() %>%
+  setNames(paste("nearest", services_multipoint$service) %>% str_replace_all(" ", "_"))
+
+LSOA_IMD_analysis <- LSOA_IMD_main %>%
+  bind_cols(dist_all_temp) %>%
+  mutate(across(starts_with("nearest"), ~if_else(as.numeric(.x) <= threshold_miles*meters_in_mile, 1, 0), .names = "close_{.col}")) %>%
+  rename_with(~str_remove(.x, "_nearest")) %>%
+  mutate(across(starts_with("close_"), ~if_else(.x == 1, str_remove(cur_column(), "close_"), ""), .names = "name_{.col}")) %>%
+  rowwise() %>%
+  mutate(proximity = paste(c_across(starts_with("name_close_")), collapse = "+")) %>%
+  ungroup() %>%
+  mutate(proximity = str_remove_all(proximity, "^[+]"),
+         proximity = str_remove_all(proximity, "[+]$"),
+         proximity = if_else(proximity == "", "None", proximity),
+         proximity = if_else(str_detect(proximity, "([+]|None)"), proximity, paste(proximity, "only"))) %>%
+  dummy_cols("proximity") 
 
 
 rural_urban_class <- onspd %>%
@@ -171,7 +213,7 @@ rural_urban_class <- onspd %>%
   filter(rank == 1) %>%
   select(-n, -rank)
 
-IMD_analysis_w_closeness <- IMD_analysis_w_closeness %>%
+LSOA_IMD_analysis <- LSOA_IMD_analysis %>%
   left_join(rural_urban_class,
             by = c("lsoa11cd" = "lsoa11")) %>%
   dummy_cols("ru11ind")
@@ -181,65 +223,26 @@ IMD_analysis_w_closeness <- IMD_analysis_w_closeness %>%
 
 ```{r}
 
-res <- lm(IMD_change ~ close_jobcentre + close_legalaid + combo_bonus, IMD_analysis_w_closeness)
-#summary.lm(res)
+LSOA_IMD_analysis <- LSOA_IMD_analysis %>%
+  calc_dependent_var()
+
+LSOA_IMD_analysis %>% filter(percent_rank(b_2015) > 0.8) %>%group_by(proximity) %>% summarise(n(), mean(b_2015, na.rm = TRUE), mean(dependent_var, na.rm = TRUE))
+
+```
+
+```{r}
+
+res <- lm(dependent_var ~`proximity_jobcentre+legal_aid` + `proximity_legal_aid only` + `proximity_jobcentre only`, LSOA_IMD_analysis)
+summary.lm(res)
 
 res %>%
   tbl_regression(intercept = TRUE)
 ```
 
 ```{r}
-res2 <- lm(IMD_change ~ IMD_2015 + close_jobcentre + close_legalaid + combo_bonus, IMD_analysis_w_closeness)
+res2 <- lm(dependent_var ~ close_jobcentre + close_legal_aid, LSOA_IMD_analysis)
 #summary.lm(res2)
 
 res2 %>%
   tbl_regression(intercept = TRUE)
-```
-
-```{r}
-
-res3 <- lm(IMD_change ~ IMD_2015 + `group2_JC+LA` + `group2_LA only` + `group2_JC only`, 
-           IMD_analysis_w_closeness %>%
-             filter(IMD_2015  > 0) %>% 
-             filter(ru11ind %in% c("A1")#,
-                    #"D2",
-                    #"E1"#,
-                    #"E2",
-                    #"F1"#,
-                    #"F2"
-             )
-)
-#summary.lm(res3)
-
-res3 %>%
-  tbl_regression(intercept = TRUE)
-```
-
-```{r}
-res3a <- lm(IMD_change ~ `group2_JC+LA` + `group2_LA only` + `group2_JC only`, 
-            IMD_analysis_w_closeness %>% 
-              filter(ru11ind %in% c("D1"#,
-                                    #"D2",
-                                    #"E1"#,
-                                    #"E2",
-                                    #"F1"#,
-                                    #"F2"
-              ))
-)
-summary.lm(res3a)
-```
-
-```{r}
-res4 <- lm(IMD_change ~ IMD_2015 + `group2_JC+LA` + `group2_LA only` + `group2_JC only` + ru11ind_B1 + ru11ind_C1 + ru11ind_C2 + ru11ind_D1 + ru11ind_D2 + ru11ind_E1 + ru11ind_E2 + ru11ind_F1 + ru11ind_F2, 
-           IMD_analysis_w_closeness
-)
-summary.lm(res4)
-```
-
-```{r}
-IMD_analysis_w_closeness_summary <- IMD_analysis_w_closeness %>% group_by(group2) %>% summarise(n(), mean(IMD_change, na.rm = TRUE))
-
-IMD_analysis_w_closeness_summary <- IMD_analysis_w_closeness %>% group_by(ru11ind, group2) %>% summarise(n(), mean(IMD_change, na.rm = TRUE))
-
-IMD_analysis_w_closeness_summary
 ```

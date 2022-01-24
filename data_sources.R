@@ -64,6 +64,7 @@ unzip("data_download/LSOA2011_boundaries.zip",
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 # ONS postcode directory
 # (for converting postcode to location)
+# https://geoportal.statistics.gov.uk/datasets/b8920bf40db14e04a59c331d1663d26e/about
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 
 download.file("https://www.arcgis.com/sharing/rest/content/items/b8920bf40db14e04a59c331d1663d26e/data",
@@ -72,16 +73,16 @@ download.file("https://www.arcgis.com/sharing/rest/content/items/b8920bf40db14e0
 unzip("data_download/onspd.zip",
       exdir = "data_download/onspd")
 
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
-# Ordnance Survey location reference
-# (for converting uprns to location)
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
-
-options(timeout = max(300, getOption("timeout"))) # as it is a big file, needs a longer timeout
-download.file("https://api.os.uk/downloads/v1/products/OpenUPRN/downloads?area=GB&format=CSV&redirect",
-              "data_download/uprns.zip")
-
-unzip("data_download/uprns.zip",
-      exdir = "data_download/uprns")
+# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+# # Ordnance Survey location reference
+# # (for converting uprns to location)
+# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+# 
+# options(timeout = max(300, getOption("timeout"))) # as it is a big file, needs a longer timeout
+# download.file("https://api.os.uk/downloads/v1/products/OpenUPRN/downloads?area=GB&format=CSV&redirect",
+#               "data_download/uprns.zip")
+# 
+# unzip("data_download/uprns.zip",
+#       exdir = "data_download/uprns")
 
 
