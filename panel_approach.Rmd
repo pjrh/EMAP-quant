@@ -31,6 +31,7 @@ library(sqldf)
 #~~~~~~~~~~~~~~~#
 
 data_dir <- "data_download"
+comitted_data <- "other_data"
 
 #~~~~~~~~~~~~~~~#
 #~~~~~~~~~~~~~~~#
@@ -52,6 +53,7 @@ IMD_2019 <- read_csv(paste(data_dir, "IMD_2019.csv", sep = "/"))
 # Load the geographic information #
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 
+
 # # Load the LSOA shapes
 LSOA_2011 <- read_sf(paste(data_dir, 
                            "LSOA2011_boundaries",
@@ -60,6 +62,19 @@ LSOA_2011 <- read_sf(paste(data_dir,
 
 LSOA_2011 <- LSOA_2011 %>%
   st_make_valid()
+
+# and lookups
+LSOA_2001_2011_lookup <- read_csv(paste(comitted_data,
+                                        "Lower_Layer_Super_Output_Area_(2001)_to_Lower_Layer_Super_Output_Area_(2011)_to_Local_Authority_District_(2011)_Lookup_in_England_and_Wales.csv",
+                                        sep = "/"))
+
+LSOA_city_lookup <- read_csv(paste(comitted_data,
+                                   "Lower_Layer_Super_Output_Area_(2011)_to_Major_Towns_and_Cities_(December_2015)_Lookup_in_England_and_Wales.csv",
+                                   sep = "/"))
+LSOA_rural_urban <- read_csv(paste(comitted_data,
+                                   "Rural_Urban_Classification_(2011)_of_Lower_Layer_Super_Output_Areas_in_England_and_Wales.csv",
+                                   sep = "/"))
+
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 # Load the public services locations #
@@ -88,7 +103,7 @@ jobcentre_register <- read_csv(paste(data_dir, "jobcentre_register.csv", sep = "
 # Note that it changes name depending on when it was downloaded so the first two lines just look for it
 uprn_dir_files <- list.files(paste(data_dir, "uprns", sep = "/"))
 uprn_file <- uprn_dir_files %>% keep(~str_detect(.x, ".csv"))
-UPRNs <- read_csv(paste(data_dir, "uprns", uprn_file, sep = "/"))
+#UPRNs <- read_csv(paste(data_dir, "uprns", uprn_file, sep = "/"))
 
 uprn_list <- jobcentre_register %>% filter(!is.na(address)) %>% pull(address) %>% format() %>% paste(collapse = ", ")
 
@@ -110,6 +125,13 @@ onspd <- read_csv(paste(data_dir, "onspd", "Data/ONSPD_FEB_2021_UK.csv", sep = "
 #~~~~~~~~~~~~~~~~~~~~~~#
 #~~~~~~~~~~~~~~~~~~~~~~#
 
+IMD_2010_income_LSOA11 <- IMD_2010_income %>%
+  left_join(LSOA_2001_2011_lookup %>% select(LSOA01CD, LSOA11CD),
+            by = c("FeatureCode" = "LSOA01CD")) %>%
+  mutate(FeatureCode = LSOA11CD) %>%
+  group_by(FeatureCode, DateCode, Measurement, `Indices of Deprivation`) %>%
+  summarise(Value = mean(Value),
+            .groups = "drop")
 
 # Create a dataframe with one row per LSOA and all the measurements for each year
 process_IMD_file <- .  %>%
@@ -123,7 +145,7 @@ process_IMD_file <- .  %>%
 IMD_main <- IMD_2019 %>% process_IMD_file() %>%
   full_join(IMD_2015 %>% process_IMD_file(),
             by = "FeatureCode") %>%
-  full_join(IMD_2010_income %>% process_IMD_file(),
+  full_join(IMD_2010_income_LSOA11  %>% process_IMD_file(),
             by = "FeatureCode")
 
 IMD_main_long <- IMD_main  %>%
@@ -152,6 +174,12 @@ gp_locations_temp <- gp_locations %>%
             by = c("X10" = "pcds")) %>%
   mutate(service = "GP") %>%
   filter(rgn != "S99999999") # remove Scotland :(
+
+gp_locations_temp_byyear <- gp_locations_temp %>%
+  count(X10, lat, long) %>%
+  mutate(service = "gp",
+         year = list(c("2010", "2015", "2019")))%>%
+  unnest(year)
 
 # Process the specific formats of the input into a temp file
 jobcentre_locations_temp <- jobcentre_locations %>%
@@ -212,7 +240,8 @@ legalaid_locations_temp <- legalaid_work %>%
   mutate(service = "legal aid")
 
 legalaid_locations_temp_byyear <- legalaid_work %>%
-  filter(scheme == "Legal Help") %>%
+  filter(scheme == "Legal Help",
+         typecode == "HOU") %>%
   mutate(year = str_sub(fin_yr, 1, 4)) %>% #todo
   filter(year %in% c("2010", "2015", "2019")) %>%
   count(year, Postcode, lat, long) %>%
@@ -236,7 +265,8 @@ legalaid_locations_temp_byyear <- legalaid_work %>%
 #   bind_rows()
 
 services_multipoint_byyear <- bind_rows(legalaid_locations_temp_byyear,
-                                        jobcentre_locations_temp_join_byyear) %>%
+                                        jobcentre_locations_temp_join_byyear,
+                                        gp_locations_temp_byyear) %>%
   
   filter(lat <= 90,
          !is.na(lat)) %>%
@@ -251,7 +281,7 @@ services_multipoint_byyear <- bind_rows(legalaid_locations_temp_byyear,
 
 ```{r}
 
-threshold_miles <- 2
+threshold_miles <- 3
 meters_in_mile <- 1609.34
 index_choice <- "b"
 
@@ -289,24 +319,42 @@ IMD_main_panel <- IMD_main_long %>%
   left_join(LSOA_with_dist_byyear,
             by = c("FeatureCode" = "lsoa11cd",
                    "year" = "year")) %>%
-  mutate(across(starts_with("nearest"), ~if_else(as.numeric(.x) <= threshold_miles*meters_in_mile, 1, 0), .names = "close_{.col}")) %>%
-  rename_with(~str_remove(.x, "_nearest")) %>%
-  mutate(combo_bonus = if_else(close_jobcentre + close_legal_aid == 2, 1, 0))
+  mutate(across(starts_with("nearest"), ~if_else(as.numeric(.x) <= 1*meters_in_mile, 1, 0), .names = "close_{.col}_1mile"),
+         across(starts_with("nearest"), ~if_else(dplyr::between(as.numeric(.x)/meters_in_mile, 1, 2), 1, 0), .names = "close_{.col}_1to2mile"),
+         across(starts_with("nearest"), ~if_else(dplyr::between(as.numeric(.x)/meters_in_mile, 2, 3), 1, 0), .names = "close_{.col}_2to3mile"),
+         across(starts_with("nearest"), ~if_else(dplyr::between(as.numeric(.x)/meters_in_mile, 3, 4), 1, 0), .names = "close_{.col}_3to4mile"),
+         across(starts_with("nearest"), ~if_else(as.numeric(.x) >= 4*meters_in_mile, 1, 0), .names = "close_{.col}_4plusmile")) %>%
+  rename_with(~str_remove(.x, "_nearest"))# %>%
+  #mutate(combo_bonus = if_else(close_jobcentre + close_legal_aid == 2, 1, 0))
 
 ```
 
 ```{r}
 
-IMD_main_panel <- IMD_main_panel %>%
-  arrange(FeatureCode, year) %>%
-  group_by(FeatureCode) %>%
-  mutate(sum_close_legal_aid = sum(close_legal_aid),
-         n_periods = n()) %>%
-  ungroup()
+# LSOA_lookup <- onspd %>%
+#   filter(!is.na(rgn)) %>%
+#   count(lsoa11, rgn) %>%
+#   group_by(lsoa11) %>%
+#   slice(which.max(n))
 
-IMD_main_panel_change <- IMD_main_panel %>%
-  filter(sum_close_legal_aid > 0,
-         sum_close_legal_aid < 3)
+IMD_main_panel <- IMD_main_panel %>%
+  # arrange(FeatureCode, year) %>%
+  # group_by(FeatureCode) %>%
+  # mutate(sum_close_legal_aid = sum(close_legal_aid),
+  #        n_periods = n()) %>%
+  # ungroup() %>%
+  left_join(LSOA_city_lookup,
+            by = c("FeatureCode" = "LSOA11CD")) %>%
+  left_join(LSOA_rural_urban, 
+            by = c("FeatureCode" = "LSOA11CD"))
+
+# IMD_main_panel_change <- IMD_main_panel %>%
+#   filter(sum_close_legal_aid > 0,
+#          sum_close_legal_aid < 3)
+
+
+
+
 
 # IMD_main_panel_change %>%
 #   ggplot(aes(as.numeric(nearest_legal_aid), b)) +
@@ -317,10 +365,11 @@ IMD_main_panel_change <- IMD_main_panel %>%
 
 ```{r}
 
-plm_out <- plm(b ~ close_legal_aid + close_jobcentre + combo_bonus,
-               data = IMD_main_panel_change,
-               model = "within",
-               effect = "twoways")
+plm_out <- plm(b ~ close_legal_aid_1mile + close_legal_aid_4plusmile + close_gp_1mile,
+               data = IMD_main_panel %>% filter(TCITY15NM == "London"),
+               model = "fd",
+               #effect = "twoways"
+               )
 
 summary(plm_out)
 
@@ -329,10 +378,41 @@ summary(plm_out)
 
 ```{r}
 
-plm_out <- plm(b ~ close_legal_aid + close_jobcentre + combo_bonus,
-               data = IMD_main_panel %>% filter(year %in% c(2015, 2019)),
-               model = "fd")
+plm_out <- plm(b ~ close_legal_aid_1mile + close_legal_aid_4plusmile + close_gp_1mile,
+               data = IMD_main_panel %>% filter(!is.na(TCITY15NM) & TCITY15NM != "London"),
+               model = "fd",
+               #effect = "twoways"
+               )
 
 summary(plm_out)
 
 ```
+
+
+```{r}
+
+plm_out <- plm(b ~ close_legal_aid_1mile + close_legal_aid_4plusmile + close_jobcentre_1mile + close_gp_1mile,
+               data = IMD_main_panel %>% filter(TCITY15NM %in% c("Leeds", "Manchester", "Birmingham", "Liverpool")),
+               model = "fd",
+               #effect = "twoways"
+               )
+
+summary(plm_out)
+
+```
+
+```{r}
+
+plm_out <- plm(b ~ close_legal_aid_1mile + close_legal_aid_4plusmile,
+               data = IMD_main_panel %>% filter(TCITY15NM %in% c("Portsmouth", "Plymouth", "Bournemouth", "Brighton and Hove")),
+               model = "fd",
+               #effect = "twoways"
+               )
+
+summary(plm_out)
+
+```
+
+
+
+
