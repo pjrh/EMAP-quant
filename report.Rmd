@@ -1,25 +1,67 @@
 ---
-title: "R Notebook"
-output: html_notebook
+title: "Publicly funded services locations"
+author: "Group D: Shaun Biddulph, Maria Paliuc, Peter Reader-Harris & Gaggan Sanghera"
+date: "EMAP Residential Week, 17th February 2022"
+output: ioslides_presentation
 ---
 
-Income deprivation general regression -> add controls and move to specifics
-Maybe be year.
-Looking for correlations
+## Aim
 
-Move from description to impact with panel
+To look at the geographic impact of Government funded services on deprivation.
 
-income and skills
+Ideally, we wanted to look at whether having multiple different services in an area was better than just a single service
+
+> income and skills
 
 agglomeration
 
-```{r}
-plot(cars)
-```
+rich people concentrate
 
-Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Cmd+Option+I*.
+## Data
 
-When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Cmd+Shift+K* to preview the HTML file). 
+ - Unit of analysis: Lower Layer Super Output Areas (LSOAs)
+   - Small areas set to have population 1000-3000
+   - 32,844	in England
+   - Highly local effects which might not be seen at a local authority level
+ - Response variable: Income deprivation
+   - Available at LSOA level for 2010, 2015 and 2019
+   - Likely to respond to the kind of services we are considering 
+   
+## Data
+   
+ - Primary regressors: Location of publically funded services
+   - Jobcenters (for period 2010-2019)
+   - GP practices (current snapshot)
+   - Legal aid offices (for period 2010-2019)
+ - Controls: Other geographic features
+ 
+## Mapping income deprivation
 
-The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+insert maps here
+
+## Correlations
+
+Using OLS
+
+Define a refression equation
+
+$$
+d = x + y +\epsilon
+$$
+
+where $x$ is something etc.
+
+Show how we are implementing controls
+
+## OLS results
+
+start with a big null result
+
+then add controls
+
+## Estimating impact using panel regression
+
+
+
+
 
