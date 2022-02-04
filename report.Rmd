@@ -9,6 +9,10 @@ Looking for correlations
 
 Move from description to impact with panel
 
+income and skills
+
+agglomeration
+
 ```{r}
 plot(cars)
 ```
