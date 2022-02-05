@@ -64,6 +64,15 @@ download.file("https://data.cambridgeshireinsight.org.uk/sites/default/files/Low
 unzip("data_download/LSOA2011_boundaries.zip",
       exdir = "data_download/LSOA2011_boundaries")
 
+download.file("http://geoportal1-ons.opendata.arcgis.com/datasets/fe6c55f0924b4734adf1cf7104a0173e_0.csv",
+              "data_download/(December_2017)_Lookup_with_Area_Classifications_in_Great_Britain.csv")
+
+download.file("http://geoportal1-ons.opendata.arcgis.com/datasets/3a4fa2ce68f642e399b4de07643eeed3_0.zip?outSR={%22latestWkid%22:27700,%22wkid%22:27700}",
+              "data_download/la_shapes.zip")
+
+unzip("data_download/la_shapes.zip",
+      exdir = "data_download/la_shapes")
+
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 # ONS postcode directory
 # (for converting postcode to location)
@@ -87,5 +96,6 @@ download.file("https://api.os.uk/downloads/v1/products/OpenUPRN/downloads?area=G
 
 unzip("data_download/uprns.zip",
       exdir = "data_download/uprns")
+
 
 

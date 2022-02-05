@@ -35,9 +35,17 @@ rich people concentrate
    - Legal aid offices (for period 2010-2019)
  - Controls: Other geographic features
  
-## Mapping income deprivation
+## Mapping income deprivation {.centered}
 
-insert maps here
+![2010](outputs/id_map_england_2010.png){width=50%}
+
+## Mapping income deprivation {.centered}
+
+![2015](outputs/id_map_england_2015.png){width=50%}
+ 
+## Mapping income deprivation {.centered}
+
+![2019](outputs/id_map_england_2019.png){width=50%}
 
 ## Correlations
 
@@ -62,6 +70,9 @@ then add controls
 ## Estimating impact using panel regression
 
 
+## Other approaches
+
+DiD
 
 
 
