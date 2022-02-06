@@ -303,7 +303,7 @@ services_multipoint_byyear <- bind_rows(legalaid_locations_temp_byyear,
 
 ```{r}
 
-threshold_miles <- 3
+#threshold_miles <- 3
 meters_in_mile <- 1609.34
 index_choice <- "b"
 
@@ -457,8 +457,109 @@ tmap_save(id_map_england_2010,
 ```
 
 
+```{r}
+
+RoIs <- LSOA_2011 %>%
+  left_join(LSOA_city_lookup,
+            by = c("lsoa11cd" = "LSOA11CD")) %>%
+  mutate(RoI = case_when(TCITY15NM == "London" ~ "London",
+                         TCITY15NM %in% c("Leeds",
+                                          "Manchester", 
+                                          "Preston", 
+                                          "Liverpool",
+                                          "Doncaster",
+                                          "Sheffield",
+                                          "Mansfield") ~ "Northern cities",
+                         TRUE ~ NA_character_)) 
 
 
+RoI_North <- RoIs %>%
+  filter(RoI == "Northern cities") %>%
+  st_combine() %>%
+  st_make_valid() %>%
+  st_buffer(dist = units::as_units(10, "miles"))
+
+RoI_London <- RoIs %>%
+  filter(RoI == "London") %>%
+  st_combine() %>%
+  st_make_valid() %>%
+  st_buffer(dist = units::as_units(10, "miles"))
+
+IMD_fd_2015_2019 <- IMD_main_panel %>%
+  filter(year %in% c("2015", "2019")) %>%
+  arrange(year) %>%
+  group_by(FeatureCode) %>%
+  summarise(close_legal_aid_1mile_fd = 
+              close_legal_aid_1mile[2] - close_legal_aid_1mile[1],
+            close_legal_aid_4plusmile_fd = 
+              close_legal_aid_4plusmile[2] - close_legal_aid_4plusmile[1])
+
+
+LSOA_2011 %>%
+  left_join(IMD_fd_2015_2019,
+            by = c("lsoa11cd" = "FeatureCode")) %>%
+  filter(close_legal_aid_1mile_fd != 0) %>%
+  #filter(CTRY11NM == "England") %>%
+  tm_shape() +
+  tm_fill(col = "close_legal_aid_1mile_fd",
+          style = "cat") +
+  tm_shape(LA_shapes) +
+  tm_borders(alpha = 0.2) +
+  tm_shape(RoI_London) +
+  tm_borders() +
+  tm_shape(RoI_North) +
+  tm_borders()
+
+
+
+
+
+```
+
+```{r}
+LSOA_2011 %>%
+  left_join(IMD_fd_2015_2019,
+            by = c("lsoa11cd" = "FeatureCode")) %>%
+  filter(close_legal_aid_4plusmile_fd != 0) %>%
+  #filter(CTRY11NM == "England") %>%
+  tm_shape() +
+  tm_fill(col = "close_legal_aid_4plusmile_fd",
+          style = "cat") +
+  tm_shape(LA_shapes) +
+  tm_borders(alpha = 0.2) +
+  tm_shape(RoI_London) +
+  tm_borders() +
+  tm_shape(RoI_North) +
+  tm_borders()
+
+```
+
+
+```{r}
+
+plm_out <- plm(b ~ close_legal_aid_1mile + close_legal_aid_4plusmile + close_gp_1mile,
+               data = IMD_main_panel,
+               model = "fd",
+               #effect = "twoways"
+)
+
+summary(plm_out)
+
+```
+
+
+
+```{r}
+
+plm_out <- plm(b ~ close_legal_aid_1mile + close_legal_aid_4plusmile + close_gp_1mile,
+               data = IMD_main_panel,
+               model = "within",
+               effect = "twoways"
+)
+
+summary(plm_out)
+
+```
 
 ```{r}
 
@@ -472,6 +573,18 @@ summary(plm_out)
 
 ```
 
+
+```{r}
+
+plm_out <- plm(b ~ close_legal_aid_1mile + close_legal_aid_4plusmile + close_gp_1mile,
+               data = IMD_main_panel %>% filter(TCITY15NM == "London"),
+               model = "within",
+               effect = "twoways"
+)
+
+summary(plm_out)
+
+```
 
 ```{r}
 

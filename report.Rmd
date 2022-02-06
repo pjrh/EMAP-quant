@@ -70,9 +70,19 @@ then add controls
 ## Estimating impact using panel regression
 
 
-## Other approaches
+## Methodological issues
 
-DiD
+lead/lag time
+
+<div class="notes">
+It presumably takes time for an office to have an impact in an area, but we haven't accounted for this
+</div>
+
+## Other approaches considered
+
+DiD => need more time periods to create a good baseline
+
+
 
 
 
