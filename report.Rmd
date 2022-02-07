@@ -19,7 +19,7 @@ Ideally, we wanted to look at whether having multiple different services in an a
    - Small areas set to have population 1000-3000
    - 32,844	in England
    - Highly local effects which might not be seen at a local authority level
- - Response variable: Income deprivation
+ - Response variable: Income deprivation (define this)
    - Available at LSOA level for 2010, 2015 and 2019
    - Likely to respond to the kind of services we are considering 
    
@@ -111,21 +111,18 @@ Outside London
 <br>
 (Other sub-regions lack any statistical significance)
 
-## Methodological issues
+## Conclusion
 
-lead/lag time - 
+There remains some methodological issues:
 
-crow-flies distance - not always realistic proxy for accessibility
+ - lead/lag time
+ - crow-flies distance - not always realistic proxy for accessibility
+ - more time periods would be better (also could try DiD)
+
+Seems likely that lacking access to justice is a factor which can increase deprivation
 
 <div class="notes">
 It presumably takes time for an office to have an impact in an area, but we haven't accounted for this
 </div>
-
-## Other approaches considered
-
-DiD => need more time periods to create a good baseline
-
-
-
 
 
