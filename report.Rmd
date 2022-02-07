@@ -11,11 +11,7 @@ To look at the geographic impact of Government funded services on deprivation.
 
 Ideally, we wanted to look at whether having multiple different services in an area was better than just a single service
 
-> income and skills
 
-agglomeration
-
-rich people concentrate
 
 ## Data
 
@@ -32,7 +28,7 @@ rich people concentrate
  - Primary regressors: Location of publically funded services
    - Jobcenters (for period 2010-2019)
    - GP practices (current snapshot)
-   - Legal aid offices (for period 2010-2019)
+   - Legal aid offices (housing & debt providers, for period 2010-2019)
  - Controls: Other geographic features
  
 ## Mapping income deprivation {.centered}
@@ -47,32 +43,79 @@ rich people concentrate
 
 ![2019](outputs/id_map_england_2019.png){width=50%}
 
-## Correlations
+## Mapping income deprivation {.centered}
 
-Using OLS
+![Change from 2010 to 2019](outputs/id_map_england_diff.png){width=50%}
 
-Define a refression equation
+## How much of the reduction in income deprivation is due to public services?
+
+Can we use OLS?
+
 
 $$
-d = x + y +\epsilon
+\Delta d = \alpha + \sum ( \beta_i \times p_i) + controls +\epsilon_j
 $$
 
-where $x$ is something etc.
+where:
 
-Show how we are implementing controls
+ - $\Delta d$ is the change in income deprivation percentage
+ - $\beta_i$ and $p_i$ are the coefficients and dummy variables for proximity to publicly funded service $i$
+ - $\epsilon_j$ is the error term
+ 
 
-## OLS results
+## OLS Results
 
-start with a big null result
+<iframe src="outputs/ols.html"></iframe>
 
-then add controls
+## Can we estimate impact using panel regression?
 
-## Estimating impact using panel regression
+Need equation
 
+Controls for fixed effects
+
+We show first first difference and fixed effects
+
+BUT
+
+ - GPs are everywhere, and we did not have data over time
+ - Jobcentres similarly do not move, excepting the small number of closures in 2018
+ - Leaves only Legal Aid offices
+ 
+## Visualising first difference {.columns-2}
+ 
+![](outputs/legal_aid_near_fd.png){width=95%}
+Within 2 miles of legal aid office
+ 
+![](outputs/legal_aid_far_fd.png){width=95%}
+ 
+ More than 4 miles from legal aid office
+
+## Can we estimate impact using panel regression?
+
+England
+
+`r htmltools::includeHTML("outputs/plm_all.html")`
+
+## Can we estimate impact using panel regression?
+
+London
+
+`r htmltools::includeHTML("outputs/plm_london.html")`
+
+## Can we estimate impact using panel regression?
+
+Outside London
+
+`r htmltools::includeHTML("outputs/plm_nonlondon.html")`
+
+<br>
+(Other sub-regions lack any statistical significance)
 
 ## Methodological issues
 
-lead/lag time
+lead/lag time - 
+
+crow-flies distance - not always realistic proxy for accessibility
 
 <div class="notes">
 It presumably takes time for an office to have an impact in an area, but we haven't accounted for this
