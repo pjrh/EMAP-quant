@@ -65,7 +65,9 @@ where:
 
 ## OLS Results
 
-<iframe src="outputs/ols.html"></iframe>
+<div style="height:520px;overflow:auto;">
+`r htmltools::includeHTML("outputs/ols.html")`
+</div>
 
 ## Can we estimate impact using panel regression?
 
