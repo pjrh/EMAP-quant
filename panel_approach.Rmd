@@ -49,6 +49,17 @@ IMD_2010_income <- read_csv(paste(data_dir, "IMD_2010_income.csv", sep = "/")) %
 IMD_2015 <- read_csv(paste(data_dir, "IMD_2015.csv", sep = "/")) 
 IMD_2019 <- read_csv(paste(data_dir, "IMD_2019.csv", sep = "/")) 
 
+# a. Index of Multiple Deprivation (IMD)                    
+# b. Income Deprivation Domain                              
+# c. Employment Deprivation Domain                          
+# d. Education, Skills and Training Domain                  
+# e. Health Deprivation and Disability Domain               
+# f. Crime Domain                                           
+# g. Barriers to Housing and Services Domain                
+# h. Living Environment Deprivation Domain                  
+# i. Income Deprivation Affecting Children Index (IDACI)    
+# j. Income Deprivation Affecting Older People Index (IDAOPI)
+
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 # Load the geographic information #
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
@@ -75,6 +86,25 @@ LSOA_rural_urban <- read_csv(paste(comitted_data,
                                    "Rural_Urban_Classification_(2011)_of_Lower_Layer_Super_Output_Areas_in_England_and_Wales.csv",
                                    sep = "/"))
 
+OA_region_lookup <- read_csv(paste(data_dir,
+                                   "(December_2017)_Lookup_with_Area_Classifications_in_Great_Britain.csv",
+                                   sep = "/"))
+
+
+LSOA_region_lookup <- OA_region_lookup %>%
+  select(-starts_with("OA"), -FID) %>%
+  distinct()
+
+# # check uniqueness on LSOA
+# LSOA_region_check <- LSOA_region_lookup %>%
+#   count(LSOA11CD) %>%
+#   arrange(-n) %>%
+#   filter(n != 1)
+
+LA_shapes <- read_sf(paste(data_dir, 
+                           "la_shapes",
+                           "Local_Authority_Districts_(December_2019)_Boundaries_UK_BUC.shp", 
+                           sep = "/"))
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 # Load the public services locations #
@@ -276,29 +306,6 @@ services_multipoint_byyear <- bind_rows(legalaid_locations_temp_byyear,
             .groups = "drop")
 
 
-```
-
-
-```{r}
-
-threshold_miles <- 3
-meters_in_mile <- 1609.34
-index_choice <- "b"
-
-# INDEX CHOICE SHOULD BE FIRST LETTER FROM THE FOLLOWING LIST:
-# a. Index of Multiple Deprivation (IMD)                    
-# b. Income Deprivation Domain                              
-# c. Employment Deprivation Domain                          
-# d. Education, Skills and Training Domain                  
-# e. Health Deprivation and Disability Domain               
-# f. Crime Domain                                           
-# g. Barriers to Housing and Services Domain                
-# h. Living Environment Deprivation Domain                  
-# i. Income Deprivation Affecting Children Index (IDACI)    
-# j. Income Deprivation Affecting Older People Index (IDAOPI)
-
-
-
 # This is the distance to the nearest service for each LSOA
 # Will be zero where the service is in the LSOA
 dist_all_temp <- LSOA_2011 %>%
@@ -314,22 +321,17 @@ LSOA_with_dist_byyear <- LSOA_2011 %>%
   separate(nearest_service, c("service", "year"), sep = ":") %>%
   pivot_wider(names_from = "service", values_from = "value")
 
+```
+
+
+```{r}
+
 
 IMD_main_panel <- IMD_main_long %>%
   left_join(LSOA_with_dist_byyear,
             by = c("FeatureCode" = "lsoa11cd",
-                   "year" = "year")) %>%
-  mutate(across(starts_with("nearest"), ~if_else(as.numeric(.x) <= 1*meters_in_mile, 1, 0), .names = "close_{.col}_1mile"),
-         across(starts_with("nearest"), ~if_else(dplyr::between(as.numeric(.x)/meters_in_mile, 1, 2), 1, 0), .names = "close_{.col}_1to2mile"),
-         across(starts_with("nearest"), ~if_else(dplyr::between(as.numeric(.x)/meters_in_mile, 2, 3), 1, 0), .names = "close_{.col}_2to3mile"),
-         across(starts_with("nearest"), ~if_else(dplyr::between(as.numeric(.x)/meters_in_mile, 3, 4), 1, 0), .names = "close_{.col}_3to4mile"),
-         across(starts_with("nearest"), ~if_else(as.numeric(.x) >= 4*meters_in_mile, 1, 0), .names = "close_{.col}_4plusmile")) %>%
-  rename_with(~str_remove(.x, "_nearest"))# %>%
-  #mutate(combo_bonus = if_else(close_jobcentre + close_legal_aid == 2, 1, 0))
+                   "year" = "year"))
 
-```
-
-```{r}
 
 # LSOA_lookup <- onspd %>%
 #   filter(!is.na(rgn)) %>%
@@ -346,6 +348,8 @@ IMD_main_panel <- IMD_main_panel %>%
   left_join(LSOA_city_lookup,
             by = c("FeatureCode" = "LSOA11CD")) %>%
   left_join(LSOA_rural_urban, 
+            by = c("FeatureCode" = "LSOA11CD")) %>%
+  left_join(LSOA_region_lookup,
             by = c("FeatureCode" = "LSOA11CD"))
 
 # IMD_main_panel_change <- IMD_main_panel %>%
@@ -360,59 +364,372 @@ IMD_main_panel <- IMD_main_panel %>%
 #   ggplot(aes(as.numeric(nearest_legal_aid), b)) +
 #   geom_point()
 
+near <- 2
+far <- 4
+
+IMD_main_panel <- IMD_main_panel %>%
+  mutate(across(starts_with("nearest"), ~if_else(.x <= units::as_units(near, "miles"), 1, 0), .names = "close_{.col}_near"),
+         across(starts_with("nearest"), ~if_else(.x >= units::as_units(far, "miles"), 1, 0), .names = "close_{.col}_far")) %>%
+  rename_with(~str_remove(.x, "_nearest"))# %>%
+#mutate(combo_bonus = if_else(close_jobcentre + close_legal_aid == 2, 1, 0))
+
+a <- LSOA_city_lookup %>%
+  count(TCITY15NM)
+
+RoIs <- LSOA_2011 %>%
+  left_join(LSOA_city_lookup,
+            by = c("lsoa11cd" = "LSOA11CD")) %>%
+  mutate(RoI = case_when(TCITY15NM == "London" ~ "London",
+                         TCITY15NM %in% c("Leeds",
+                                          "Manchester", 
+                                          "Liverpool",
+                                          "Sheffield"
+                                          #"Preston",
+                                          #"Barnsely",
+                                          #"Bolton",
+                                          #"Wigan",
+                                          #"Bradford",
+                                          #"Blackpool",
+                                          #"Birmingham",
+                                          #"Doncaster",
+                                          #"Mansfield",
+                                          #"Nottingham",
+                                          #"Leicester"
+                                          #"Warrington",
+                                          #"Wakefield"
+                                          ) ~ "Northern cities",
+                         TRUE ~ NA_character_)) 
+
+
+RoI_North <- RoIs %>%
+  filter(RoI == "Northern cities") %>%
+  st_combine() %>%
+  st_make_valid() %>%
+  st_buffer(dist = units::as_units(5, "miles"))
+
+# RoI_North <- st_bbox(c(xmin = -16.1, xmax = 16.6, ymax = 85, ymin = 51), crs = st_crs("WGS84")) %>%
+#   st_as_sfc()
+
+RoI_London <- RoIs %>%
+  filter(RoI == "London") %>%
+  st_combine() %>%
+  st_make_valid() %>%
+  st_buffer(dist = units::as_units(10, "miles"))
+
+
+
+LSOA_2011_RoI <- LSOA_2011 %>% 
+  mutate(London_RoI = lengths(st_intersects(LSOA_2011, RoI_London)) > 0,
+         North_RoI = lengths(st_intersects(LSOA_2011, RoI_North)) > 0)
+
+LSOA_2011_RoI_northcodes <- LSOA_2011_RoI %>%
+  filter(North_RoI) %>% 
+  pull(lsoa11cd)
+
+LSOA_2011_RoI_londoncodes <- LSOA_2011_RoI %>%
+  filter(London_RoI) %>% 
+  pull(lsoa11cd)
+
+IMD_fd_2015_2019 <- IMD_main_panel %>%
+  filter(year %in% c("2015", "2019")) %>%
+  arrange(year) %>%
+  group_by(FeatureCode) %>%
+  summarise(close_legal_aid_near_fd = 
+              close_legal_aid_near[2] - close_legal_aid_near[1],
+            close_legal_aid_far_fd = 
+              close_legal_aid_far[2] - close_legal_aid_far[1])
+
+map_fd_near <- LSOA_2011 %>%
+  left_join(IMD_fd_2015_2019,
+            by = c("lsoa11cd" = "FeatureCode")) %>%
+  filter(close_legal_aid_near_fd != 0) %>%
+  #filter(CTRY11NM == "England") %>%
+  tm_shape() +
+  tm_fill(col = "close_legal_aid_near_fd",
+          style = "cat") +
+  tm_shape(LA_shapes) +
+  tm_borders(alpha = 0.2) +
+   tm_shape(LSOA_2011_RoI %>% filter(London_RoI) %>% st_combine() %>% st_make_valid()) +
+   tm_borders() #+
+  # tm_shape(LSOA_2011_RoI %>% filter(North_RoI) %>% st_combine() %>% st_make_valid()) +
+  # tm_borders()
+
+tmap_save(map_fd_near,
+          filename = "outputs/legal_aid_near_fd.png")
+
+
+
+```
+
+```{r}
+map_fd_far <- LSOA_2011 %>%
+  left_join(IMD_fd_2015_2019,
+            by = c("lsoa11cd" = "FeatureCode")) %>%
+  filter(close_legal_aid_far_fd != 0) %>%
+  #filter(CTRY11NM == "England") %>%
+  tm_shape() +
+  tm_fill(col = "close_legal_aid_far_fd",
+          style = "cat") +
+  tm_shape(LA_shapes) +
+  tm_borders(alpha = 0.2) +
+  tm_shape(LSOA_2011_RoI %>% filter(London_RoI) %>% st_combine() %>% st_make_valid()) +
+  tm_borders() #+
+  # tm_shape(LSOA_2011_RoI %>% filter(North_RoI) %>% st_combine() %>% st_make_valid()) +
+  # tm_borders()
+
+tmap_save(map_fd_far,
+          filename = "outputs/legal_aid_far_fd.png")
+
 ```
 
 
 ```{r}
 
-plm_out <- plm(b ~ close_legal_aid_1mile + close_legal_aid_4plusmile + close_gp_1mile,
-               data = IMD_main_panel %>% filter(TCITY15NM == "London"),
-               model = "fd",
-               #effect = "twoways"
-               )
+IMD_main_wide <- IMD_main_panel %>%
+  pivot_wider(names_from = year,
+              values_from = -c(FeatureCode, year)) %>%
+  mutate(b_diff = b_2019 - b_2010)
 
-summary(plm_out)
+t1 <- lm(b_diff ~ close_legal_aid_near_2015 + close_legal_aid_far_2015 + close_jobcentre_near_2015 + close_jobcentre_far_2015 + close_gp_far_2015 + close_gp_near_2015,
+   data = IMD_main_wide) %>%
+   tbl_regression(intercept = TRUE,
+                  estimate_fun = \(x) style_sigfig(x, digits = 3))
+
+t2 <- lm(b_diff ~ RUC11_2019 + close_legal_aid_near_2015 + close_legal_aid_far_2015 + close_jobcentre_near_2015 + close_jobcentre_far_2015 + close_gp_far_2015 + close_gp_near_2015,
+   data = IMD_main_wide) %>%
+   tbl_regression(intercept = TRUE,
+                  estimate_fun = \(x) style_sigfig(x, digits = 3))
+
+tbl_merge(
+    tbls = list(t1, t2),
+    tab_spanner = c("**No controls**", "**Rural/Urban controls**")
+  ) %>%
+   as_gt() %>%
+   gt::text_transform(locations = gt::cells_body(columns = label),
+                      \(x) case_when(x == "close_legal_aid_near_2015" ~ glue("Legal aid: within {near} miles"),
+                                     x == "close_legal_aid_far_2015" ~ glue("Legal aid: Over {far} miles"),
+                                     x == "close_jobcentre_near_2015" ~ glue("Jobcentre: within {near} miles"),
+                                     x == "close_jobcentre_far_2015" ~ glue("Jobcentre: Over {far} miles"),
+                                     x == "close_gp_near_2015" ~ glue("GP: within {near} miles"),
+                                     x == "close_gp_far_2015" ~ glue("GP: Over {far} miles"),
+                                     x == "RUC11_2019" ~ glue("ONS Rural/Urban classification"),
+                                     TRUE ~ x)) %>%
+  gt::gtsave(filename = "outputs/ols.html")
 
 ```
 
 
 ```{r}
 
-plm_out <- plm(b ~ close_legal_aid_1mile + close_legal_aid_4plusmile + close_gp_1mile,
-               data = IMD_main_panel %>% filter(!is.na(TCITY15NM) & TCITY15NM != "London"),
+data_plm <- IMD_main_panel
+
+plm_out_fd <- plm(b ~ close_legal_aid_near + close_legal_aid_far,
+               data = data_plm,
                model = "fd",
                #effect = "twoways"
-               )
+)
 
-summary(plm_out)
+#summary(plm_out)
+
+tbl_plm_out_fd <- plm_out_fd %>%
+  tbl_regression(intercept = TRUE,
+                  estimate_fun = \(x) style_sigfig(x, digits = 3))
+
+
+plm_out_fe <- plm(b ~ close_legal_aid_near + close_legal_aid_far,
+               data = data_plm,
+               model = "within",
+               effect = "twoways"
+)
+
+#summary(plm_out)
+
+tbl_plm_out_fe <- plm_out_fe %>%
+  tbl_regression(intercept = TRUE,
+                  estimate_fun = \(x) style_sigfig(x, digits = 3))
+
+tbl_merge(
+    tbls = list(tbl_plm_out_fd, tbl_plm_out_fe),
+    tab_spanner = c("**First difference**", "**Fixed effects**")
+  ) %>%
+   as_gt() %>%
+   gt::text_transform(locations = gt::cells_body(columns = label),
+                      \(x) case_when(x == "close_legal_aid_near" ~ glue("Within {near} miles"),
+                                     x == "close_legal_aid_far" ~ glue("Over {far} miles"),
+                                     TRUE ~ x)) %>%
+  gt::gtsave(filename = "outputs/plm_all.html")
+
+```
+
+```{r}
+
+data_plm <- IMD_main_panel %>%
+                 filter(FeatureCode %in% LSOA_2011_RoI_londoncodes)
+
+plm_out_fd <- plm(b ~ close_legal_aid_near + close_legal_aid_far,
+               data = data_plm,
+               model = "fd",
+               #effect = "twoways"
+)
+
+#summary(plm_out)
+
+tbl_plm_out_fd <- plm_out_fd %>%
+  tbl_regression(intercept = TRUE,
+                  estimate_fun = \(x) style_sigfig(x, digits = 3))
+
+
+plm_out_fe <- plm(b ~ close_legal_aid_near + close_legal_aid_far,
+               data = data_plm,
+               model = "within",
+               effect = "twoways"
+)
+
+#summary(plm_out)
+
+tbl_plm_out_fe <- plm_out_fe %>%
+  tbl_regression(intercept = TRUE,
+                  estimate_fun = \(x) style_sigfig(x, digits = 3))
+
+tbl_merge(
+    tbls = list(tbl_plm_out_fd, tbl_plm_out_fe),
+    tab_spanner = c("**First difference**", "**Fixed effects**")
+  ) %>%
+   as_gt() %>%
+   gt::text_transform(locations = gt::cells_body(columns = label),
+                      \(x) case_when(x == "close_legal_aid_near" ~ glue("Within {near} miles"),
+                                     x == "close_legal_aid_far" ~ glue("Over {far} miles"),
+                                     TRUE ~ x)) %>%
+  gt::gtsave(filename = "outputs/plm_london.html")
 
 ```
 
 
 ```{r}
 
-plm_out <- plm(b ~ close_legal_aid_1mile + close_legal_aid_4plusmile + close_jobcentre_1mile + close_gp_1mile,
-               data = IMD_main_panel %>% filter(TCITY15NM %in% c("Leeds", "Manchester", "Birmingham", "Liverpool")),
+data_plm <- IMD_main_panel %>%
+                 filter(!(FeatureCode %in% LSOA_2011_RoI_londoncodes))
+
+plm_out_fd <- plm(b ~ close_legal_aid_near + close_legal_aid_far,
+               data = data_plm,
                model = "fd",
                #effect = "twoways"
-               )
+)
 
-summary(plm_out)
+#summary(plm_out)
+
+tbl_plm_out_fd <- plm_out_fd %>%
+  tbl_regression(intercept = TRUE,
+                  estimate_fun = \(x) style_sigfig(x, digits = 3))
+
+
+plm_out_fe <- plm(b ~ close_legal_aid_near + close_legal_aid_far,
+               data = data_plm,
+               model = "within",
+               effect = "twoways"
+)
+
+#summary(plm_out)
+
+tbl_plm_out_fe <- plm_out_fe %>%
+  tbl_regression(intercept = TRUE,
+                  estimate_fun = \(x) style_sigfig(x, digits = 3))
+
+tbl_merge(
+    tbls = list(tbl_plm_out_fd, tbl_plm_out_fe),
+    tab_spanner = c("**First difference**", "**Fixed effects**")
+  ) %>%
+   as_gt() %>%
+   gt::text_transform(locations = gt::cells_body(columns = label),
+                      \(x) case_when(x == "close_legal_aid_near" ~ glue("Within {near} miles"),
+                                     x == "close_legal_aid_far" ~ glue("Over {far} miles"),
+                                     TRUE ~ x)) %>%
+  gt::gtsave(filename = "outputs/plm_nonlondon.html")
 
 ```
 
-```{r}
 
-plm_out <- plm(b ~ close_legal_aid_1mile + close_legal_aid_4plusmile,
-               data = IMD_main_panel %>% filter(TCITY15NM %in% c("Portsmouth", "Plymouth", "Bournemouth", "Brighton and Hove")),
-               model = "fd",
-               #effect = "twoways"
-               )
 
-summary(plm_out)
+```{r message=FALSE}
+# we can plot:
+# services_multipoint_byyear
+# LSOA_2011 (boundaries)
+# IMD_main_panel
 
+# LA_shape <- LSOA_2011 %>%
+#   left_join(LSOA_region_lookup,
+#             by = c("lsoa11cd" = "LSOA11CD")) %>%
+#   filter(CTRY11NM == "England") %>%
+#   group_by(LAD17NM) %>%
+#   st_union() %>%
+#   st_make_valid()
+
+IMD_shapes_2019 <- LSOA_2011 %>%
+  left_join(IMD_main_panel %>% filter(year == "2019"),
+            by = c("lsoa11cd" = "FeatureCode")) %>%
+  filter(CTRY11NM == "England",
+         !is.na(b))
+
+IMD_shapes_2015 <- LSOA_2011 %>%
+  left_join(IMD_main_panel %>% filter(year == "2015"),
+            by = c("lsoa11cd" = "FeatureCode")) %>%
+  filter(CTRY11NM == "England")
+
+IMD_shapes_2010 <- LSOA_2011 %>%
+  left_join(IMD_main_panel %>% filter(year == "2010"),
+            by = c("lsoa11cd" = "FeatureCode")) %>%
+  filter(CTRY11NM == "England")
+
+breaks = seq(0,8) * 0.1
+
+tmap_mode("plot")
+id_map_england_2019 <- tm_basemap("Stamen.TonerLite") +
+  tm_shape(IMD_shapes_2019 %>% mutate(`Income deprivation` = b)) + 
+  tm_fill(col = "Income deprivation",
+          style = "fixed",
+          breaks = breaks) +
+  tm_shape(LA_shapes) +
+  tm_borders(alpha = 0.2)
+
+tmap_save(id_map_england_2019,
+          filename = "outputs/id_map_england_2019.png")
+
+id_map_england_2015 <- tm_basemap("Stamen.TonerLite") +
+  tm_shape(IMD_shapes_2015 %>% mutate(`Income deprivation` = b)) + 
+  tm_fill(col = "Income deprivation",
+          style = "fixed",
+          breaks = breaks) +
+  tm_shape(LA_shapes) +
+  tm_borders(alpha = 0.2)
+
+tmap_save(id_map_england_2015,
+          filename = "outputs/id_map_england_2015.png")
+
+id_map_england_2010 <- tm_basemap("Stamen.TonerLite") +
+  tm_shape(IMD_shapes_2010 %>% mutate(`Income deprivation` = b)) + 
+  tm_fill(col = "Income deprivation",
+          style = "fixed",
+          breaks = breaks) +
+  tm_shape(LA_shapes) +
+  tm_borders(alpha = 0.2)
+
+tmap_save(id_map_england_2010,
+          filename = "outputs/id_map_england_2010.png")
+
+
+IMD_shapes_diff <- LSOA_2011 %>%
+  inner_join(IMD_main_wide,
+            by = c("lsoa11cd" = "FeatureCode"))
+
+id_map_england_diff <- tm_basemap("Stamen.TonerLite") +
+  tm_shape(IMD_shapes_diff %>% mutate(`Income deprivation change` = b_diff)) + 
+  tm_fill(col = "Income deprivation change",
+          style = "fixed",
+          breaks = c(-Inf, -0.05, 0.05, Inf)) +
+  tm_shape(LA_shapes) +
+  tm_borders(alpha = 0.2)
+
+tmap_save(id_map_england_diff,
+          filename = "outputs/id_map_england_diff.png")
 ```
-
-
-
 
