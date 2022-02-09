@@ -397,7 +397,7 @@ RoIs <- LSOA_2011 %>%
                                           #"Leicester"
                                           #"Warrington",
                                           #"Wakefield"
-                                          ) ~ "Northern cities",
+                         ) ~ "Northern cities",
                          TRUE ~ NA_character_)) 
 
 
@@ -446,13 +446,23 @@ map_fd_near <- LSOA_2011 %>%
   #filter(CTRY11NM == "England") %>%
   tm_shape() +
   tm_fill(col = "close_legal_aid_near_fd",
-          style = "cat") +
+          title = "",
+          style = "cat",
+          palette = "Pastel1",
+          legend.format=list(fun=function(x) if_else(x<0, 
+                                                     glue("{x} Became not near"),
+                                                     glue("+{x} Became near")))) +
   tm_shape(LA_shapes) +
   tm_borders(alpha = 0.2) +
-   tm_shape(LSOA_2011_RoI %>% filter(London_RoI) %>% st_combine() %>% st_make_valid()) +
-   tm_borders() #+
-  # tm_shape(LSOA_2011_RoI %>% filter(North_RoI) %>% st_combine() %>% st_make_valid()) +
-  # tm_borders()
+  tm_shape(LSOA_2011_RoI %>% filter(London_RoI) %>% st_combine() %>% st_make_valid()) +
+  tm_borders() + 
+  tm_layout(glue("First difference 2015 to 2019:\nLSOAs within {near} miles"),
+            legend.title.size = 2,
+            legend.text.size = 1.2)
+
+#+
+# tm_shape(LSOA_2011_RoI %>% filter(North_RoI) %>% st_combine() %>% st_make_valid()) +
+# tm_borders()
 
 tmap_save(map_fd_near,
           filename = "outputs/legal_aid_near_fd.png")
@@ -469,13 +479,19 @@ map_fd_far <- LSOA_2011 %>%
   #filter(CTRY11NM == "England") %>%
   tm_shape() +
   tm_fill(col = "close_legal_aid_far_fd",
-          style = "cat") +
+          title = "",
+          style = "cat",
+          palette = "Pastel1",
+          legend.format=list(fun=function(x)  if_else(x<0, 
+                                                     glue("{x} Became not far"),
+                                                     glue("+{x} Became far")))) +
   tm_shape(LA_shapes) +
   tm_borders(alpha = 0.2) +
   tm_shape(LSOA_2011_RoI %>% filter(London_RoI) %>% st_combine() %>% st_make_valid()) +
-  tm_borders() #+
-  # tm_shape(LSOA_2011_RoI %>% filter(North_RoI) %>% st_combine() %>% st_make_valid()) +
-  # tm_borders()
+  tm_borders() + 
+  tm_layout(glue("First difference 2015 to 2019:\nLSOAs over {far} miles"),
+            legend.title.size = 2,
+            legend.text.size = 1.2)
 
 tmap_save(map_fd_far,
           filename = "outputs/legal_aid_far_fd.png")
@@ -485,36 +501,48 @@ tmap_save(map_fd_far,
 
 ```{r}
 
-IMD_main_wide <- IMD_main_panel %>%
-  pivot_wider(names_from = year,
-              values_from = -c(FeatureCode, year)) %>%
-  mutate(b_diff = b_2019 - b_2010)
+input_data <- IMD_main_panel %>% filter(year == "2019")
 
-t1 <- lm(b_diff ~ close_legal_aid_near_2015 + close_legal_aid_far_2015 + close_jobcentre_near_2015 + close_jobcentre_far_2015 + close_gp_far_2015 + close_gp_near_2015,
-   data = IMD_main_wide) %>%
-   tbl_regression(intercept = TRUE,
-                  estimate_fun = \(x) style_sigfig(x, digits = 3))
+m1 <- lm(b ~ close_legal_aid_near + close_legal_aid_far + close_jobcentre_near + close_jobcentre_far + close_gp_far + close_gp_near,
+         data = input_data)
 
-t2 <- lm(b_diff ~ RUC11_2019 + close_legal_aid_near_2015 + close_legal_aid_far_2015 + close_jobcentre_near_2015 + close_jobcentre_far_2015 + close_gp_far_2015 + close_gp_near_2015,
-   data = IMD_main_wide) %>%
-   tbl_regression(intercept = TRUE,
-                  estimate_fun = \(x) style_sigfig(x, digits = 3))
+t1 <- m1 %>%
+  tbl_regression(intercept = TRUE,
+                 estimate_fun = \(x) style_sigfig(x, digits = 3)) %>%
+  add_significance_stars(hide_ci = FALSE,
+                         hide_se = TRUE)
 
-tbl_merge(
-    tbls = list(t1, t2),
-    tab_spanner = c("**No controls**", "**Rural/Urban controls**")
-  ) %>%
-   as_gt() %>%
-   gt::text_transform(locations = gt::cells_body(columns = label),
-                      \(x) case_when(x == "close_legal_aid_near_2015" ~ glue("Legal aid: within {near} miles"),
-                                     x == "close_legal_aid_far_2015" ~ glue("Legal aid: Over {far} miles"),
-                                     x == "close_jobcentre_near_2015" ~ glue("Jobcentre: within {near} miles"),
-                                     x == "close_jobcentre_far_2015" ~ glue("Jobcentre: Over {far} miles"),
-                                     x == "close_gp_near_2015" ~ glue("GP: within {near} miles"),
-                                     x == "close_gp_far_2015" ~ glue("GP: Over {far} miles"),
-                                     x == "RUC11_2019" ~ glue("ONS Rural/Urban classification"),
-                                     TRUE ~ x)) %>%
-  gt::gtsave(filename = "outputs/ols.html")
+m2 <- lm(b ~ RUC11 + close_legal_aid_near + close_legal_aid_far + close_jobcentre_near + close_jobcentre_far + close_gp_far + close_gp_near,
+         data = input_data)
+
+t2 <- m2 %>%
+  tbl_regression(intercept = TRUE,
+                 estimate_fun = \(x) style_sigfig(x, digits = 3)) %>%
+  add_significance_stars(hide_ci = FALSE,
+                         hide_se = TRUE)
+
+a <- tbl_merge(
+  tbls = list(t1, t2),
+  tab_spanner = c("**No controls**", "**Rural/Urban controls**")
+) %>%
+  as_gt() %>%
+  gt::text_transform(locations = gt::cells_body(columns = label),
+                     \(x) case_when(x == "close_legal_aid_near" ~ glue("Legal aid: within {near} miles"),
+                                    x == "close_legal_aid_far" ~ glue("Legal aid: over {far} miles"),
+                                    x == "close_jobcentre_near" ~ glue("Jobcentre: within {near} miles"),
+                                    x == "close_jobcentre_far" ~ glue("Jobcentre: over {far} miles"),
+                                    x == "close_gp_near" ~ glue("GP: within {near} miles"),
+                                    x == "close_gp_far" ~ glue("GP: over {far} miles"),
+                                    x == "RUC11" ~ glue("ONS Rural/Urban classification"),
+                                    TRUE ~ x)) %>%
+  gt::tab_header("Income deprivation proportion by LSOA, 2019") %>%
+  gt::tab_footnote(glue("n = 82,344;
+                      R^2 = {m1 %>% broom::glance() %>% pull(r.squared) %>% format(digits = 2)}"),
+                   gt::cells_column_spanners("**No controls**")) %>%
+  gt::tab_footnote(glue("n = 82,344;
+                      R^2 = {m2 %>% broom::glance() %>% pull(r.squared) %>% format(digits = 2)}"),
+                   gt::cells_column_spanners("**Rural/Urban controls**")) %>%
+  gt::gtsave(filename = "outputs/ols_2019.html")
 
 ```
 
@@ -524,39 +552,50 @@ tbl_merge(
 data_plm <- IMD_main_panel
 
 plm_out_fd <- plm(b ~ close_legal_aid_near + close_legal_aid_far,
-               data = data_plm,
-               model = "fd",
-               #effect = "twoways"
+                  data = data_plm,
+                  model = "fd",
+                  #effect = "twoways"
 )
 
 #summary(plm_out)
 
 tbl_plm_out_fd <- plm_out_fd %>%
   tbl_regression(intercept = TRUE,
-                  estimate_fun = \(x) style_sigfig(x, digits = 3))
+                 estimate_fun = \(x) style_sigfig(x, digits = 3)) %>%
+  add_significance_stars(hide_ci = FALSE,
+                         hide_se = TRUE)
 
 
 plm_out_fe <- plm(b ~ close_legal_aid_near + close_legal_aid_far,
-               data = data_plm,
-               model = "within",
-               effect = "twoways"
+                  data = data_plm,
+                  model = "within",
+                  effect = "twoways"
 )
 
 #summary(plm_out)
 
 tbl_plm_out_fe <- plm_out_fe %>%
   tbl_regression(intercept = TRUE,
-                  estimate_fun = \(x) style_sigfig(x, digits = 3))
+                 estimate_fun = \(x) style_sigfig(x, digits = 3)) %>%
+  add_significance_stars(hide_ci = FALSE,
+                         hide_se = TRUE)
 
 tbl_merge(
-    tbls = list(tbl_plm_out_fd, tbl_plm_out_fe),
-    tab_spanner = c("**First difference**", "**Fixed effects**")
-  ) %>%
-   as_gt() %>%
-   gt::text_transform(locations = gt::cells_body(columns = label),
-                      \(x) case_when(x == "close_legal_aid_near" ~ glue("Within {near} miles"),
-                                     x == "close_legal_aid_far" ~ glue("Over {far} miles"),
-                                     TRUE ~ x)) %>%
+  tbls = list(tbl_plm_out_fd, tbl_plm_out_fe),
+  tab_spanner = c("**First difference**", "**Fixed effects**")
+) %>%
+  as_gt() %>%
+  gt::text_transform(locations = gt::cells_body(columns = label),
+                     \(x) case_when(x == "close_legal_aid_near" ~ glue("Legal aid: within {near} miles"),
+                                    x == "close_legal_aid_far" ~ glue("Legal aid: over {far} miles"),
+                                    TRUE ~ x)) %>%
+  gt::tab_header("Income deprivation proportion by LSOA, England") %>%
+  gt::tab_footnote(glue("n = 82,344; T = 3;
+                      R^2 = {plm_out_fd %>% broom::glance() %>% pull(r.squared) %>% format(digits = 2)}"),
+                   gt::cells_column_spanners("**First difference**")) %>%
+  gt::tab_footnote(glue("n = 82,344; T = 3;
+                      R^2 = {plm_out_fe %>% broom::glance() %>% pull(r.squared) %>% format(digits = 2)}"),
+                   gt::cells_column_spanners("**Fixed effects**")) %>%
   gt::gtsave(filename = "outputs/plm_all.html")
 
 ```
@@ -564,42 +603,53 @@ tbl_merge(
 ```{r}
 
 data_plm <- IMD_main_panel %>%
-                 filter(FeatureCode %in% LSOA_2011_RoI_londoncodes)
+  filter(FeatureCode %in% LSOA_2011_RoI_londoncodes)
 
 plm_out_fd <- plm(b ~ close_legal_aid_near + close_legal_aid_far,
-               data = data_plm,
-               model = "fd",
-               #effect = "twoways"
+                  data = data_plm,
+                  model = "fd",
+                  #effect = "twoways"
 )
 
 #summary(plm_out)
 
 tbl_plm_out_fd <- plm_out_fd %>%
   tbl_regression(intercept = TRUE,
-                  estimate_fun = \(x) style_sigfig(x, digits = 3))
+                 estimate_fun = \(x) style_sigfig(x, digits = 3)) %>%
+  add_significance_stars(hide_ci = FALSE,
+                         hide_se = TRUE)
 
 
 plm_out_fe <- plm(b ~ close_legal_aid_near + close_legal_aid_far,
-               data = data_plm,
-               model = "within",
-               effect = "twoways"
+                  data = data_plm,
+                  model = "within",
+                  effect = "twoways"
 )
 
 #summary(plm_out)
 
 tbl_plm_out_fe <- plm_out_fe %>%
   tbl_regression(intercept = TRUE,
-                  estimate_fun = \(x) style_sigfig(x, digits = 3))
+                 estimate_fun = \(x) style_sigfig(x, digits = 3)) %>%
+  add_significance_stars(hide_ci = FALSE,
+                         hide_se = TRUE)
 
 tbl_merge(
-    tbls = list(tbl_plm_out_fd, tbl_plm_out_fe),
-    tab_spanner = c("**First difference**", "**Fixed effects**")
-  ) %>%
-   as_gt() %>%
-   gt::text_transform(locations = gt::cells_body(columns = label),
-                      \(x) case_when(x == "close_legal_aid_near" ~ glue("Within {near} miles"),
-                                     x == "close_legal_aid_far" ~ glue("Over {far} miles"),
-                                     TRUE ~ x)) %>%
+  tbls = list(tbl_plm_out_fd, tbl_plm_out_fe),
+  tab_spanner = c("**First difference**", "**Fixed effects**")
+) %>%
+  as_gt() %>%
+  gt::text_transform(locations = gt::cells_body(columns = label),
+                     \(x) case_when(x == "close_legal_aid_near" ~ glue("Legal aid: within {near} miles"),
+                                    x == "close_legal_aid_far" ~ glue("Legal aid: over {far} miles"),
+                                    TRUE ~ x)) %>%
+  gt::tab_header("Income deprivation proportion by LSOA, London + 10 miles") %>%
+  gt::tab_footnote(glue("n = 82,344; T = 3;
+                      R^2 = {plm_out_fd %>% broom::glance() %>% pull(r.squared) %>% format(digits = 2)}"),
+                   gt::cells_column_spanners("**First difference**")) %>%
+  gt::tab_footnote(glue("n = 82,344; T = 3;
+                      R^2 = {plm_out_fe %>% broom::glance() %>% pull(r.squared) %>% format(digits = 2)}"),
+                   gt::cells_column_spanners("**Fixed effects**")) %>%
   gt::gtsave(filename = "outputs/plm_london.html")
 
 ```
@@ -608,42 +658,53 @@ tbl_merge(
 ```{r}
 
 data_plm <- IMD_main_panel %>%
-                 filter(!(FeatureCode %in% LSOA_2011_RoI_londoncodes))
+  filter(!(FeatureCode %in% LSOA_2011_RoI_londoncodes))
 
 plm_out_fd <- plm(b ~ close_legal_aid_near + close_legal_aid_far,
-               data = data_plm,
-               model = "fd",
-               #effect = "twoways"
+                  data = data_plm,
+                  model = "fd",
+                  #effect = "twoways"
 )
 
 #summary(plm_out)
 
 tbl_plm_out_fd <- plm_out_fd %>%
   tbl_regression(intercept = TRUE,
-                  estimate_fun = \(x) style_sigfig(x, digits = 3))
+                 estimate_fun = \(x) style_sigfig(x, digits = 3)) %>%
+  add_significance_stars(hide_ci = FALSE,
+                         hide_se = TRUE)
 
 
 plm_out_fe <- plm(b ~ close_legal_aid_near + close_legal_aid_far,
-               data = data_plm,
-               model = "within",
-               effect = "twoways"
+                  data = data_plm,
+                  model = "within",
+                  effect = "twoways"
 )
 
 #summary(plm_out)
 
 tbl_plm_out_fe <- plm_out_fe %>%
   tbl_regression(intercept = TRUE,
-                  estimate_fun = \(x) style_sigfig(x, digits = 3))
+                 estimate_fun = \(x) style_sigfig(x, digits = 3)) %>%
+  add_significance_stars(hide_ci = FALSE,
+                         hide_se = TRUE)
 
 tbl_merge(
-    tbls = list(tbl_plm_out_fd, tbl_plm_out_fe),
-    tab_spanner = c("**First difference**", "**Fixed effects**")
-  ) %>%
-   as_gt() %>%
-   gt::text_transform(locations = gt::cells_body(columns = label),
-                      \(x) case_when(x == "close_legal_aid_near" ~ glue("Within {near} miles"),
-                                     x == "close_legal_aid_far" ~ glue("Over {far} miles"),
-                                     TRUE ~ x)) %>%
+  tbls = list(tbl_plm_out_fd, tbl_plm_out_fe),
+  tab_spanner = c("**First difference**", "**Fixed effects**")
+) %>%
+  as_gt() %>%
+  gt::text_transform(locations = gt::cells_body(columns = label),
+                     \(x) case_when(x == "close_legal_aid_near" ~ glue("Legal aid: within {near} miles"),
+                                    x == "close_legal_aid_far" ~ glue("Legal aid: over {far} miles"),
+                                    TRUE ~ x)) %>%
+  gt::tab_header("Income deprivation proportion by LSOA, Outside London") %>%
+  gt::tab_footnote(glue("n = 82,344; T = 3;
+                      R^2 = {plm_out_fd %>% broom::glance() %>% pull(r.squared) %>% format(digits = 2)}"),
+                   gt::cells_column_spanners("**First difference**")) %>%
+  gt::tab_footnote(glue("n = 82,344; T = 3;
+                      R^2 = {plm_out_fe %>% broom::glance() %>% pull(r.squared) %>% format(digits = 2)}"),
+                   gt::cells_column_spanners("**Fixed effects**")) %>%
   gt::gtsave(filename = "outputs/plm_nonlondon.html")
 
 ```
@@ -673,12 +734,14 @@ IMD_shapes_2019 <- LSOA_2011 %>%
 IMD_shapes_2015 <- LSOA_2011 %>%
   left_join(IMD_main_panel %>% filter(year == "2015"),
             by = c("lsoa11cd" = "FeatureCode")) %>%
-  filter(CTRY11NM == "England")
+  filter(CTRY11NM == "England",
+         !is.na(b))
 
 IMD_shapes_2010 <- LSOA_2011 %>%
   left_join(IMD_main_panel %>% filter(year == "2010"),
             by = c("lsoa11cd" = "FeatureCode")) %>%
-  filter(CTRY11NM == "England")
+  filter(CTRY11NM == "England",
+         !is.na(b))
 
 breaks = seq(0,8) * 0.1
 
@@ -687,9 +750,12 @@ id_map_england_2019 <- tm_basemap("Stamen.TonerLite") +
   tm_shape(IMD_shapes_2019 %>% mutate(`Income deprivation` = b)) + 
   tm_fill(col = "Income deprivation",
           style = "fixed",
-          breaks = breaks) +
+          breaks = breaks,
+          legend.format=list(fun=function(x) paste0(formatC(x*100, digits=0, format="f"), "%"))) +
   tm_shape(LA_shapes) +
-  tm_borders(alpha = 0.2)
+  tm_borders(alpha = 0.2) + 
+  tm_layout(legend.title.size = 2,
+            legend.text.size = 1.5)
 
 tmap_save(id_map_england_2019,
           filename = "outputs/id_map_england_2019.png")
@@ -698,9 +764,12 @@ id_map_england_2015 <- tm_basemap("Stamen.TonerLite") +
   tm_shape(IMD_shapes_2015 %>% mutate(`Income deprivation` = b)) + 
   tm_fill(col = "Income deprivation",
           style = "fixed",
-          breaks = breaks) +
+          breaks = breaks,
+          legend.format=list(fun=function(x) paste0(formatC(x*100, digits=0, format="f"), "%"))) +
   tm_shape(LA_shapes) +
-  tm_borders(alpha = 0.2)
+  tm_borders(alpha = 0.2) + 
+  tm_layout(legend.title.size = 2,
+            legend.text.size = 1.5)
 
 tmap_save(id_map_england_2015,
           filename = "outputs/id_map_england_2015.png")
@@ -709,9 +778,12 @@ id_map_england_2010 <- tm_basemap("Stamen.TonerLite") +
   tm_shape(IMD_shapes_2010 %>% mutate(`Income deprivation` = b)) + 
   tm_fill(col = "Income deprivation",
           style = "fixed",
-          breaks = breaks) +
+          breaks = breaks,
+          legend.format=list(fun=function(x) paste0(formatC(x*100, digits=0, format="f"), "%"))) +
   tm_shape(LA_shapes) +
-  tm_borders(alpha = 0.2)
+  tm_borders(alpha = 0.2) + 
+  tm_layout(legend.title.size = 2,
+            legend.text.size = 1.5)
 
 tmap_save(id_map_england_2010,
           filename = "outputs/id_map_england_2010.png")
@@ -719,15 +791,21 @@ tmap_save(id_map_england_2010,
 
 IMD_shapes_diff <- LSOA_2011 %>%
   inner_join(IMD_main_wide,
-            by = c("lsoa11cd" = "FeatureCode"))
+             by = c("lsoa11cd" = "FeatureCode")) %>%
+  filter(!is.na(b_diff))
 
 id_map_england_diff <- tm_basemap("Stamen.TonerLite") +
   tm_shape(IMD_shapes_diff %>% mutate(`Income deprivation change` = b_diff)) + 
   tm_fill(col = "Income deprivation change",
+          title = "Income deprivation\nchange",
           style = "fixed",
-          breaks = c(-Inf, -0.05, 0.05, Inf)) +
+          breaks = c(-Inf, -0.05, 0.05, Inf),
+          pallette = "-RdYlGn",
+          legend.format=list(fun=function(x) paste0(formatC(x*100, digits=0, format="f"), "%"))) +
   tm_shape(LA_shapes) +
-  tm_borders(alpha = 0.2)
+  tm_borders(alpha = 0.2) + 
+  tm_layout(legend.title.size = 2,
+            legend.text.size = 1.5)
 
 tmap_save(id_map_england_diff,
           filename = "outputs/id_map_england_diff.png")
