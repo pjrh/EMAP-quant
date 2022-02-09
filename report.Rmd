@@ -1,17 +1,25 @@
 ---
-title: "Publicly funded services locations"
+title: "Does co-location of government services improve outcomes for the local area?"
 author: "Group D: Shaun Biddulph, Maria Paliuc, Peter Reader-Harris & Gaggan Sanghera"
 date: "EMAP Residential Week, 17th February 2022"
 output: ioslides_presentation
 ---
 
-## Aim
+## Motivation
 
-To look at the geographic impact of Government funded services on deprivation.
+Government funds lots of different programs aimed at reducing deprivation
 
-Ideally, we wanted to look at whether having multiple different services in an area was better than just a single service
+ - some is "geographic"local" in nature
+ - lots of different departments funding different things (co-ordination?)
+ - people often experience multiple problems simultaneously
 
+**Ideally, we wanted to look at whether having multiple different services in an area was better than just a single service**
 
+<div class="notes">
+The government funds many different services which exist to help people in need, often targeted at the most vulnerable in society. However there often lacks co-ordination between different departments, or other publicly funded bodies, on where to locate different services. Our proposal is to look at the outcomes of different locations with different combinations of publicly funded services to observe whether different combinations of services have effects which are larger than that of each service individually. This could inform whether there should be better co-ordination between departments to meet cross-Government objectives, such as improved social mobility.
+
+Spoiler: this was not possible
+</div>
 
 ## Data
 
@@ -19,9 +27,14 @@ Ideally, we wanted to look at whether having multiple different services in an a
    - Small areas set to have population 1000-3000
    - 32,844	in England
    - Highly local effects which might not be seen at a local authority level
- - Response variable: Income deprivation (define this)
+ - Response variable: Income deprivation (%, based on benefits eligibility)
    - Available at LSOA level for 2010, 2015 and 2019
    - Likely to respond to the kind of services we are considering 
+   
+<div class="notes">
+Jumping into data availability -> we were restricted because we wanted to see local effects
+Income deprivation is an absolute scale, but does vary y/y due to benefits eligibility
+</div>
    
 ## Data
    
@@ -53,29 +66,31 @@ Can we use OLS?
 
 
 $$
-\Delta d = \alpha + \sum ( \beta_i \times p_i) + controls +\epsilon_j
+d_i = \beta_0 + \sum_{s,d} ( \beta_{s,d} \times p_{i,s,d}) + controls + \epsilon_{i}
 $$
 
-where:
-
- - $\Delta d$ is the change in income deprivation percentage
- - $\beta_i$ and $p_i$ are the coefficients and dummy variables for proximity to publicly funded service $i$
- - $\epsilon_j$ is the error term
+ - $d_i$ is the income deprivation percentage for area $i$
+ - $\beta_0$ is the intercept
+ - $\beta_{s,d}$ and $p_{i,s,d}$ are the coefficients and dummy variables for proximity to publicly funded service $s$ at distance band $d$
+ - $\epsilon_i$ is the error term
  
+This does not tell you anything particularly useful.
 
-## OLS Results
+<!-- ## OLS Results -->
 
-<div style="height:520px;overflow:auto;">
-`r htmltools::includeHTML("outputs/ols.html")`
-</div>
+<!-- <div style="height:520px;overflow:auto;"> -->
+<!-- `r htmltools::includeHTML("outputs/ols.html")` -->
+<!-- </div> -->
 
 ## Can we estimate impact using panel regression?
 
-Need equation
+Consider the first difference estimator:
+
+$$
+\Delta d_{i,t} = \alpha + \sum_d ( \beta_{i,d,t} \times \Delta p_{i,d,t}) + \Delta \epsilon_{i,t}
+$$
 
 Controls for fixed effects
-
-We show first first difference and fixed effects
 
 BUT
 
@@ -113,15 +128,20 @@ Outside London
 <br>
 (Other sub-regions lack any statistical significance)
 
+
 ## Conclusion
 
-There remains some methodological issues:
+We tried panel regression, but:
+
+ - impossible to use for local public services which do not change over time (most?)
+ - time varying fixed effects still likely e.g. rural/urban
+ - more time periods would be better (when difference in difference may be better)
+
+Some methodological issues beyond panel regression:
 
  - lead/lag time
  - crow-flies distance - not always realistic proxy for accessibility
- - more time periods would be better (also could try DiD)
-
-Seems likely that lacking access to justice is a factor which can increase deprivation
+ - comparability of income deprivation between periods
 
 <div class="notes">
 It presumably takes time for an office to have an impact in an area, but we haven't accounted for this
