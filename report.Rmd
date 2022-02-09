@@ -9,7 +9,7 @@ output: ioslides_presentation
 
 Government funds lots of different programs aimed at reducing deprivation
 
- - some is "geographic"local" in nature
+ - some is "local" in nature
  - lots of different departments funding different things (co-ordination?)
  - people often experience multiple problems simultaneously
 
@@ -74,13 +74,11 @@ $$
  - $\beta_{s,d}$ and $p_{i,s,d}$ are the coefficients and dummy variables for proximity to publicly funded service $s$ at distance band $d$
  - $\epsilon_i$ is the error term
  
-This does not tell you anything particularly useful.
+## OLS Results
 
-<!-- ## OLS Results -->
-
-<!-- <div style="height:520px;overflow:auto;"> -->
-<!-- `r htmltools::includeHTML("outputs/ols.html")` -->
-<!-- </div> -->
+<div style="height:520px;overflow:auto;">
+`r htmltools::includeHTML("outputs/ols_2019.html")`
+</div>
 
 ## Can we estimate impact using panel regression?
 
@@ -95,11 +93,11 @@ Controls for fixed effects
 BUT
 
  - GPs are everywhere, and we did not have data over time
- - Jobcentres similarly do not move, excepting the small number of closures in 2018
- - Leaves only Legal Aid offices
+ - Jobcentres, although we do have data over time, generally stay put $\therefore \Delta p = 0$
+ - **Leaves only Legal Aid offices**
  
 ## Visualising first difference {.columns-2}
- 
+
 ![](outputs/legal_aid_near_fd.png){width=95%}
 Within 2 miles of legal aid office
  
@@ -109,19 +107,13 @@ Within 2 miles of legal aid office
 
 ## Can we estimate impact using panel regression?
 
-England
-
 `r htmltools::includeHTML("outputs/plm_all.html")`
 
 ## Can we estimate impact using panel regression?
 
-London
-
 `r htmltools::includeHTML("outputs/plm_london.html")`
 
 ## Can we estimate impact using panel regression?
-
-Outside London
 
 `r htmltools::includeHTML("outputs/plm_nonlondon.html")`
 
@@ -131,10 +123,10 @@ Outside London
 
 ## Conclusion
 
-We tried panel regression, but:
+Tentative conclusion: being far from legal aid office probably is bad for income deprivation, but downsides of panel regression:
 
  - impossible to use for local public services which do not change over time (most?)
- - time varying fixed effects still likely e.g. rural/urban
+ - time varying endogeneity still likely
  - more time periods would be better (when difference in difference may be better)
 
 Some methodological issues beyond panel regression:
@@ -142,6 +134,7 @@ Some methodological issues beyond panel regression:
  - lead/lag time
  - crow-flies distance - not always realistic proxy for accessibility
  - comparability of income deprivation between periods
+ 
 
 <div class="notes">
 It presumably takes time for an office to have an impact in an area, but we haven't accounted for this
