@@ -709,7 +709,59 @@ tbl_merge(
 
 ```
 
+```{r}
 
+data_plm <- IMD_main_panel %>%
+  filter((FeatureCode %in% LSOA_2011_RoI_northcodes))
+
+plm_out_fd <- plm(b ~ close_legal_aid_near + close_legal_aid_far,
+                  data = data_plm,
+                  model = "fd",
+                  #effect = "twoways"
+)
+
+#summary(plm_out)
+
+tbl_plm_out_fd <- plm_out_fd %>%
+  tbl_regression(intercept = TRUE,
+                 estimate_fun = \(x) style_sigfig(x, digits = 3)) %>%
+  add_significance_stars(hide_ci = FALSE,
+                         hide_se = TRUE)
+
+
+plm_out_fe <- plm(b ~ close_legal_aid_near + close_legal_aid_far,
+                  data = data_plm,
+                  model = "within",
+                  effect = "twoways"
+)
+
+#summary(plm_out)
+
+tbl_plm_out_fe <- plm_out_fe %>%
+  tbl_regression(intercept = TRUE,
+                 estimate_fun = \(x) style_sigfig(x, digits = 3)) %>%
+  add_significance_stars(hide_ci = FALSE,
+                         hide_se = TRUE)
+
+tbl_merge(
+  tbls = list(tbl_plm_out_fd, tbl_plm_out_fe),
+  tab_spanner = c("**First difference**", "**Fixed effects**")
+) %>%
+  as_gt() %>%
+  gt::text_transform(locations = gt::cells_body(columns = label),
+                     \(x) case_when(x == "close_legal_aid_near" ~ glue("Legal aid: within {near} miles"),
+                                    x == "close_legal_aid_far" ~ glue("Legal aid: over {far} miles"),
+                                    TRUE ~ x)) %>%
+  gt::tab_header("Income deprivation proportion by LSOA, Outside London") %>%
+  gt::tab_footnote(glue("n = 82,344; T = 3;
+                      R^2 = {plm_out_fd %>% broom::glance() %>% pull(r.squared) %>% format(digits = 2)}"),
+                   gt::cells_column_spanners("**First difference**")) %>%
+  gt::tab_footnote(glue("n = 82,344; T = 3;
+                      R^2 = {plm_out_fe %>% broom::glance() %>% pull(r.squared) %>% format(digits = 2)}"),
+                   gt::cells_column_spanners("**Fixed effects**")) %>%
+  gt::gtsave(filename = "outputs/plm_north.html")
+
+```
 
 ```{r message=FALSE}
 # we can plot:
