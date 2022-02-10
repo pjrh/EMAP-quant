@@ -840,6 +840,10 @@ id_map_england_2010 <- tm_basemap("Stamen.TonerLite") +
 tmap_save(id_map_england_2010,
           filename = "outputs/id_map_england_2010.png")
 
+IMD_main_wide <- IMD_main_panel %>%
+   pivot_wider(names_from = year,
+               values_from = -c(FeatureCode, year)) %>%
+   mutate(b_diff = b_2019 - b_2010)
 
 IMD_shapes_diff <- LSOA_2011 %>%
   inner_join(IMD_main_wide,
