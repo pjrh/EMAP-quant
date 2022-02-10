@@ -117,10 +117,6 @@ Within 2 miles of legal aid office
 
 `r htmltools::includeHTML("outputs/plm_nonlondon.html")`
 
-<br>
-(Other sub-regions lack any statistical significance)
-
-
 ## Conclusion
 
 Tentative conclusion: being far from legal aid office probably is bad for income deprivation, but downsides of panel regression:
