@@ -546,10 +546,10 @@ a <- tbl_merge(
                                     x == "RUC11" ~ glue("ONS Rural/Urban classification"),
                                     TRUE ~ x)) %>%
   gt::tab_header("Income deprivation proportion by LSOA, 2019") %>%
-  gt::tab_footnote(glue("n = 82,344;
+  gt::tab_footnote(glue("n = {input_data %>% nrow()};
                       R^2 = {m1 %>% broom::glance() %>% pull(r.squared) %>% format(digits = 2)}"),
                    gt::cells_column_spanners("**No controls**")) %>%
-  gt::tab_footnote(glue("n = 82,344;
+  gt::tab_footnote(glue("n = {input_data %>% nrow()};
                       R^2 = {m2 %>% broom::glance() %>% pull(r.squared) %>% format(digits = 2)}"),
                    gt::cells_column_spanners("**Rural/Urban controls**")) %>%
   gt::gtsave(filename = "outputs/ols_2019.html")
