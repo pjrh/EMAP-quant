@@ -467,7 +467,17 @@ map_fd_near <- LSOA_2011 %>%
 tmap_save(map_fd_near,
           filename = "outputs/legal_aid_near_fd.png")
 
+```
 
+Breakdown of LSOA proximity dummy classification
+
+```{r}
+
+IMD_main_panel %>%
+  mutate(a = case_when(close_legal_aid_near == 1 ~ "LSOA near",
+                       close_legal_aid_far == 1 ~ "LSOA far",
+                       TRUE ~ "LSOA between near and far")) %>%
+  count(year, a)
 
 ```
 
@@ -590,10 +600,10 @@ tbl_merge(
                                     x == "close_legal_aid_far" ~ glue("Legal aid: over {far} miles"),
                                     TRUE ~ x)) %>%
   gt::tab_header("Income deprivation proportion by LSOA, England") %>%
-  gt::tab_footnote(glue("n = 82,344; T = 3;
+  gt::tab_footnote(glue("n = {data_plm %>% pull(FeatureCode) %>% unique() %>% length()}; T = 3;
                       R^2 = {plm_out_fd %>% broom::glance() %>% pull(r.squared) %>% format(digits = 2)}"),
                    gt::cells_column_spanners("**First difference**")) %>%
-  gt::tab_footnote(glue("n = 82,344; T = 3;
+  gt::tab_footnote(glue("n = {data_plm %>% pull(FeatureCode) %>% unique() %>% length()}; T = 3;
                       R^2 = {plm_out_fe %>% broom::glance() %>% pull(r.squared) %>% format(digits = 2)}"),
                    gt::cells_column_spanners("**Fixed effects**")) %>%
   gt::gtsave(filename = "outputs/plm_all.html")
@@ -644,10 +654,10 @@ tbl_merge(
                                     x == "close_legal_aid_far" ~ glue("Legal aid: over {far} miles"),
                                     TRUE ~ x)) %>%
   gt::tab_header("Income deprivation proportion by LSOA, London + 10 miles") %>%
-  gt::tab_footnote(glue("n = 82,344; T = 3;
+  gt::tab_footnote(glue("n = {data_plm %>% pull(FeatureCode) %>% unique() %>% length()}; T = 3;
                       R^2 = {plm_out_fd %>% broom::glance() %>% pull(r.squared) %>% format(digits = 2)}"),
                    gt::cells_column_spanners("**First difference**")) %>%
-  gt::tab_footnote(glue("n = 82,344; T = 3;
+  gt::tab_footnote(glue("n = {data_plm %>% pull(FeatureCode) %>% unique() %>% length()}; T = 3;
                       R^2 = {plm_out_fe %>% broom::glance() %>% pull(r.squared) %>% format(digits = 2)}"),
                    gt::cells_column_spanners("**Fixed effects**")) %>%
   gt::gtsave(filename = "outputs/plm_london.html")
@@ -699,10 +709,10 @@ tbl_merge(
                                     x == "close_legal_aid_far" ~ glue("Legal aid: over {far} miles"),
                                     TRUE ~ x)) %>%
   gt::tab_header("Income deprivation proportion by LSOA, Outside London") %>%
-  gt::tab_footnote(glue("n = 82,344; T = 3;
+  gt::tab_footnote(glue("n = {data_plm %>% pull(FeatureCode) %>% unique() %>% length()}; T = 3;
                       R^2 = {plm_out_fd %>% broom::glance() %>% pull(r.squared) %>% format(digits = 2)}"),
                    gt::cells_column_spanners("**First difference**")) %>%
-  gt::tab_footnote(glue("n = 82,344; T = 3;
+  gt::tab_footnote(glue("n = {data_plm %>% pull(FeatureCode) %>% unique() %>% length()}; T = 3;
                       R^2 = {plm_out_fe %>% broom::glance() %>% pull(r.squared) %>% format(digits = 2)}"),
                    gt::cells_column_spanners("**Fixed effects**")) %>%
   gt::gtsave(filename = "outputs/plm_nonlondon.html")
@@ -753,10 +763,10 @@ tbl_merge(
                                     x == "close_legal_aid_far" ~ glue("Legal aid: over {far} miles"),
                                     TRUE ~ x)) %>%
   gt::tab_header("Income deprivation proportion by LSOA, Outside London") %>%
-  gt::tab_footnote(glue("n = 82,344; T = 3;
+  gt::tab_footnote(glue("n ={data_plm %>% pull(FeatureCode) %>% unique() %>% length()}; T = 3;
                       R^2 = {plm_out_fd %>% broom::glance() %>% pull(r.squared) %>% format(digits = 2)}"),
                    gt::cells_column_spanners("**First difference**")) %>%
-  gt::tab_footnote(glue("n = 82,344; T = 3;
+  gt::tab_footnote(glue("n = {data_plm %>% pull(FeatureCode) %>% unique() %>% length()}; T = 3;
                       R^2 = {plm_out_fe %>% broom::glance() %>% pull(r.squared) %>% format(digits = 2)}"),
                    gt::cells_column_spanners("**Fixed effects**")) %>%
   gt::gtsave(filename = "outputs/plm_north.html")

@@ -85,7 +85,7 @@ $$
 Consider the first difference estimator:
 
 $$
-\Delta d_{i,t} = \alpha + \sum_d ( \beta_{i,d,t} \times \Delta p_{i,d,t}) + \Delta \epsilon_{i,t}
+\Delta d_{i,t} = \alpha + \sum_{s,d} ( \beta_{s,d} \times \Delta p_{i,s,d,t}) + \Delta \epsilon_{i,t}
 $$
 
 Controls for fixed effects
